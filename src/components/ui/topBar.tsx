@@ -1,6 +1,5 @@
 //Import från ett annat projekt för struktur och design.
 
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import {
 	Dimensions,
@@ -29,11 +28,7 @@ export default function TopBar({
 					onPress={() => router.back()}
 					style={styles.backButton}
 				>
-					<Ionicons
-						name="arrow-back"
-						size={24}
-						color="#3E5F90"
-					/>
+
 				</TouchableOpacity>
 			) : (
 				<View style={styles.sideSpacer} />

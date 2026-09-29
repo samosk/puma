@@ -1,3 +1,4 @@
+/* 
 import * as Device from 'expo-device';
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +43,8 @@ export default function HomeScreen() {
         <ThemedText type="code" style={styles.code}>
           get started
         </ThemedText>
+
+		
 
         <ThemedView type="backgroundElement" style={styles.stepContainer}>
           <HintRow
@@ -94,5 +97,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
+  },
+});
+
+ */
+
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { StyleSheet, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+
+export default function Index() {
+  return (
+    <View style={styles.container}>
+      <MapView
+        style={styles.map}
+        showsUserLocation={true}
+        initialRegion={{
+          latitude: 63.8258,
+          longitude: 20.2630,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
+      >
+
+        <Marker coordinate={{ latitude: 63.8258, longitude: 20.2630 }}>
+			<MaterialCommunityIcons
+				name="candy"
+				size={50}
+				color="magenta"
+			/>
+		</Marker>
+
+      </MapView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
+  map: {
+    width: '100%',
+    height: '100%',
   },
 });
