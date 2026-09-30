@@ -101,7 +101,6 @@ const styles = StyleSheet.create({
 });
 
  */
-
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -111,7 +110,20 @@ export default function Index() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
+        
+        // Show the user's current position
         showsUserLocation={true}
+
+        // Keep the map centered on the user as they move
+        followsUserLocation={true}
+
+        // Allow the user to manually move around the map
+        showsMyLocationButton={true}
+
+        // Apple Maps
+        mapType="standard"
+
+        // Initial position before iOS gets the user's actual location
         initialRegion={{
           latitude: 63.8258,
           longitude: 20.2630,
@@ -119,15 +131,18 @@ export default function Index() {
           longitudeDelta: 0.05,
         }}
       >
-
-        <Marker coordinate={{ latitude: 63.8258, longitude: 20.2630 }}>
-			<MaterialCommunityIcons
-				name="candy"
-				size={50}
-				color="magenta"
-			/>
-		</Marker>
-
+        <Marker
+          coordinate={{
+            latitude: 63.8258,
+            longitude: 20.2630,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="candy"
+            size={50}
+            color="magenta"
+          />
+        </Marker>
       </MapView>
     </View>
   );
