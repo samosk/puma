@@ -1,5 +1,5 @@
 import { Platform, ScrollView, View } from "react-native";
-import TopBar from "../components/ui/TopBar";
+import TopBar from "../components/ui/topBar";
 
 const topPadding = Platform.OS === "ios" ? 50 : 60;
 
