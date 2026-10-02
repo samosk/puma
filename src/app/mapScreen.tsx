@@ -1,148 +1,284 @@
-import { supabase } from '@/lib/supabase';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import { useEffect, useRef, useState } from 'react';
+import {
+	Alert,
+	Linking,
+	Platform,
+	StyleSheet,
+	View,
+} from 'react-native';
+import MapView from 'react-native-maps';
 
-// ---------------------------------------------------------------
-// WHICH TABLE TO SHOW
-// Any table with a read policy works, e.g.:
-// 'animals', 'species', 'profiles', 'cosmetics', 'challenges'
-// ---------------------------------------------------------------
-const TABLE_NAME = 'animals';
+import CandyInfoCard from '../components/CandyInfoCard';
+import CandyMarker from '../components/CandyMarker';
+import CenterMapButton from '../components/CenterMapButton';
+import { supabase } from '../lib/supabase';
+import type { Candy } from '../types/types';
 
-// ---------------------------------------------------------------
-// COLORS
-// One fixed palette, so the screen looks the same whether the
-// phone is in light or dark mode. Change the hex values freely.
-// ---------------------------------------------------------------
-const COLORS = {
-  background: '#101318',
-  card: '#1A1E25',
-  border: '#2A303A',
-  text: '#EEF1F5',
-  muted: '#98A2B3',
-  error: '#F97066',
-};
+export default function MapScreen() {
+  const mapRef = useRef<MapView>(null);
 
-export default function HomeScreen() {
-  // rows    = the data from the table (starts empty)
-  // loading = true while waiting for Supabase
-  // error   = error message if the request failed, otherwise null
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [candies, setCandies] = useState<Candy[]>([]);
+  const [selectedCandy, setSelectedCandy] =
+    useState<Candy | null>(null);
 
-  // Fetches the data from Supabase.
-  // useCallback just keeps this function stable so useEffect below
-  // doesn't re-run it on every render.
-  const loadRows = useCallback(async () => {
-	setLoading(true);
+  const [candyAddress, setCandyAddress] = useState(
+    'Finding location...'
+  );
 
-	// ---------------------------------------------------------------
-	// THE QUERY — this is the part you'll change most often.
-	// Add or swap lines to change what data comes back:
-	//
-	//   .select('name, xp')                  only these columns
-	//   .select('*, species(name)')          also include the related species' name
-	//   .eq('owner_id', 'some-uuid')         only rows where owner_id matches
-	//   .gt('xp', 100)                       only rows where xp is greater than 100
-	//   .order('xp', { ascending: false })   sort by xp, highest first
-	//   .limit(10)                           at most 10 rows
-	// ---------------------------------------------------------------
-	const { data, error } = await supabase
-	  .from(TABLE_NAME)
-	  .select('*');
-
-	setRows(data ?? []);
-	setError(error ? error.message : null);
-	setLoading(false);
+  useEffect(() => {
+    requestLocationPermission();
+    fetchCandies();
   }, []);
 
-  // Run loadRows once when the screen first opens
-  useEffect(() => {
-	loadRows();
-  }, [loadRows]);
+  // --------------------------------
+  // LOCATION PERMISSION
+  // --------------------------------
 
-  // Spinner on the very first load (before any rows have arrived)
-  if (loading && rows.length === 0) {
-	return (
-	  <View style={[styles.center, { backgroundColor: COLORS.background }]}>
-		<ActivityIndicator color={COLORS.text} />
-	  </View>
-	);
+  async function requestLocationPermission() {
+    const { status } =
+      await Location.requestForegroundPermissionsAsync();
+
+    if (status !== 'granted') {
+      console.log('❌ Location permission was denied');
+      return;
+    }
+
+    console.log('📍 Location permission granted');
   }
 
-  return (
-	<SafeAreaView style={styles.screen} edges={['top']}>
-	  {/* Page title: shows the table name and how many rows came back */}
-	  <Text style={styles.title}>{TABLE_NAME}</Text>
-	  <Text style={styles.muted}>{rows.length} rows</Text>
+  // --------------------------------
+  // FETCH CANDIES
+  // --------------------------------
 
-	  <FlatList
-		data={rows}
-		// Each row needs a unique key; most tables have an "id" column
-		keyExtractor={(item, index) => String(item.id ?? index)}
-		contentContainerStyle={styles.list}
-		// Pull down on the list to reload the data
-		refreshing={loading}
-		onRefresh={loadRows}
-		// Shown when there are no rows: either the error, or a hint
-		ListEmptyComponent={
-		  <Text style={error ? styles.error : styles.muted}>
-			{error ?? 'No rows. Check the table has data and a read policy.'}
-		  </Text>
-		}
-		// ---------------------------------------------------------------
-		// HOW EACH ROW LOOKS
-		// Right now it lists every column automatically. To design your
-		// own layout, replace the inside of the card with specific
-		// columns, for example:
-		//
-		//   <Text style={styles.value}>{String(item.name)}</Text>
-		//   <Text style={styles.muted}>XP: {String(item.xp)}</Text>
-		// ---------------------------------------------------------------
-		renderItem={({ item }) => (
-		  <View style={styles.card}>
-			{Object.entries(item).map(([column, value]) => (
-			  <View key={column} style={styles.field}>
-				<Text style={styles.key}>{column}</Text>
-				<Text style={styles.value}>{formatValue(value)}</Text>
-			  </View>
-			))}
-		  </View>
-		)}
-	  />
-	</SafeAreaView>
+  async function fetchCandies() {
+    console.log(
+      '🍬 Fetching candy spawns from Supabase...'
+    );
+
+    const { data, error } = await supabase
+      .from('candy_spawns')
+      .select(
+        'id, latitude, longitude, expires_at, collected_at'
+      )
+      .is('collected_at', null);
+
+    if (error) {
+      console.error(
+        '❌ Error fetching candy spawns:',
+        error
+      );
+      return;
+    }
+
+    console.log(
+      '🍬 Number of candies:',
+      data?.length ?? 0
+    );
+
+    setCandies(data ?? []);
+  }
+
+  // --------------------------------
+  // CENTER MAP ON USER
+  // --------------------------------
+
+  async function centerOnUser() {
+    console.log('📍 Centering map on user...');
+
+    try {
+      const location =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+      const { latitude, longitude } = location.coords;
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        500
+      );
+    } catch (error) {
+      console.log(
+        '❌ Could not get current location:',
+        error
+      );
+    }
+  }
+
+  // --------------------------------
+  // CANDY PRESSED
+  // --------------------------------
+
+  async function handleCandyPress(candy: Candy) {
+    console.log('Candy pressed!');
+    console.log('Candy ID:', candy.id);
+
+    setSelectedCandy(candy);
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: candy.latitude,
+        longitude: candy.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      },
+      500
+    );
+
+    try {
+      const result =
+        await Location.reverseGeocodeAsync({
+          latitude: candy.latitude,
+          longitude: candy.longitude,
+        });
+
+      if (result.length > 0) {
+        const address = result[0];
+
+        const formattedAddress = [
+          address.street,
+          address.streetNumber,
+          address.postalCode,
+          address.city,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        setCandyAddress(
+          formattedAddress || 'Candy location'
+        );
+      } else {
+        setCandyAddress('Candy location');
+      }
+    } catch (error) {
+      console.log(
+        '❌ Could not find candy address:',
+        error
+      );
+
+      setCandyAddress('Candy location');
+    }
+  }
+
+  // --------------------------------
+  // CLOSE CANDY CARD
+  // --------------------------------
+
+  function closeCandyPopup() {
+    setSelectedCandy(null);
+  }
+
+  // --------------------------------
+  // OPEN DIRECTIONS
+  // --------------------------------
+
+  async function openDirections() {
+    if (!selectedCandy) {
+      return;
+    }
+
+    const latitude = selectedCandy.latitude;
+    const longitude = selectedCandy.longitude;
+
+    console.log('🧭 Opening directions...');
+    console.log(
+      '📍 Destination:',
+      latitude,
+      longitude
+    );
+
+    const appleMapsUrl =
+      `http://maps.apple.com/?daddr=` +
+      `${latitude},${longitude}`;
+
+    const googleMapsUrl =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&destination=${latitude},${longitude}` +
+      `&travelmode=walking`;
+
+    try {
+      if (Platform.OS === 'ios') {
+        const appleSupported =
+          await Linking.canOpenURL(appleMapsUrl);
+
+        if (appleSupported) {
+          await Linking.openURL(appleMapsUrl);
+          return;
+        }
+      }
+
+      await Linking.openURL(googleMapsUrl);
+    } catch (error) {
+      console.error(
+        '❌ Could not open maps:',
+        error
+      );
+
+      Alert.alert(
+        'Could not open Maps',
+        'No supported maps application could be opened.'
+      );
+    }
+  }
+
+  // --------------------------------
+  // UI
+  // --------------------------------
+
+  return (
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        showsUserLocation
+        showsMyLocationButton={false}
+        showsCompass
+        mapType="standard"
+        initialRegion={{
+          latitude: 63.8258,
+          longitude: 20.2630,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
+      >
+        {candies.map((candy) => (
+          <CandyMarker
+            key={candy.id}
+            candy={candy}
+            onPress={handleCandyPress}
+          />
+        ))}
+      </MapView>
+
+      <CenterMapButton
+        onPress={centerOnUser}
+      />
+
+      {selectedCandy && (
+        <CandyInfoCard
+          candy={selectedCandy}
+          address={candyAddress}
+          onClose={closeCandyPopup}
+          onDirections={openDirections}
+        />
+      )}
+    </View>
   );
 }
 
-// Turns any database value into text: empty values become a dash,
-// objects (like joined tables) become JSON
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
-// ---------------------------------------------------------------
-// STYLES — sizes, spacing and layout for everything above
-// ---------------------------------------------------------------
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 16 },
-  muted: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
-  error: { fontSize: 14, color: COLORS.error },
-  list: { paddingVertical: 16, gap: 12 },
-  card: {
-	backgroundColor: COLORS.card,
-	borderColor: COLORS.border,
-	borderWidth: 1,
-	borderRadius: 12,
-	padding: 14,
-	gap: 8,
+  container: {
+    flex: 1,
   },
-  field: { flexDirection: 'row', gap: 12 },
-  key: { width: 110, fontSize: 13, color: COLORS.muted },
-  value: { flex: 1, fontSize: 15, color: COLORS.text },
+
+  map: {
+    width: '100%',
+    height: '100%',
+  },
 });
