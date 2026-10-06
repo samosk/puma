@@ -87,7 +87,11 @@ async function ensureProfile(user: User) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const { error } = await supabase.from('profiles').insert({ id: user.id, username });
     if (!error) return;
-
+    // 23503 = the user no longer exists (e.g. deleted in Supabase): log out
+    if (error.code === '23503') {
+      await supabase.auth.signOut();
+      return;
+    }
     // 23505 = "already exists": the username was taken, try another
     if (error.code !== '23505') {
       console.error('Could not create profile:', error.message);

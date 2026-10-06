@@ -7,9 +7,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "puma",
     "userInterfaceStyle": "automatic",
+
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Allow Puma to use your location to show your position on the map."
+      }
     },
+
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -19,10 +24,12 @@
       },
       "predictiveBackGestureEnabled": false
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -33,8 +40,10 @@
           "imageWidth": 76
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sqlite"
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
