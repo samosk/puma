@@ -5,8 +5,8 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
-	StyleSheet,
-	TouchableOpacity,
+    StyleSheet,
+    TouchableOpacity,
 } from 'react-native';
 
 type CenterMapButtonProps = {
@@ -16,7 +16,7 @@ type CenterMapButtonProps = {
 
 export default function CenterMapButton({
     onPress,
-    bottom = 110,
+    bottom = 130,
 }: CenterMapButtonProps) {
     return (
         <TouchableOpacity

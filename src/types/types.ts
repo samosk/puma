@@ -6,3 +6,8 @@ export type Candy = {
 	collected_at: string | null;
 };
 
+export type User = {
+    id: string;
+    username: string;
+    candies: number;
+};
