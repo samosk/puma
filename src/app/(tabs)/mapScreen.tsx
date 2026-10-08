@@ -34,7 +34,6 @@ export default function MapScreen() {
     const [isCollectingCandy, setIsCollectingCandy] = useState(false);
     const [isFollowingUser, setIsFollowingUser] = useState(true);
 
-
     /*
      * Load the currently logged-in user.
      */
@@ -84,70 +83,74 @@ export default function MapScreen() {
     }
 
     /*
-     * Fetch active candies from Supabase.
-     *
-     * The database is the source of truth.
-     */
-    async function fetchCandies() {
-        console.log(
-            'Fetching active candies from database...'
-        );
+	* Fetch active candies from Supabase.
+	*
+	* The database is the source of truth.
+	*/
+	async function fetchCandies() {
+		console.log(
+			'Fetching active candies from database...'
+		);
 
-        const { data, error } =
-            await supabase
-                .from('candy_spawns')
-                .select(
-                    'id, latitude, longitude, expires_at, collected_at'
-                )
-                .is('collected_at', null);
+		const { data, error } =
+			await supabase
+				.from('candy_spawns')
+				.select(
+					'id, user_id, latitude, longitude, expires_at, collected_at'
+				)
+				.is('collected_at', null);
 
-        if (error) {
-            console.error(
-                'Failed to fetch candies'
-            );
+		if (error) {
+			console.error(
+				'Failed to fetch candies'
+			);
 
-            console.error(
-                'Supabase error:',
-                error
-            );
+			console.error(
+				'Supabase error:',
+				error
+			);
 
-            return;
-        }
+			return;
+		}
 
-        console.log(
-            `Database says ${
-                data?.length ?? 0
-            } active candies on map`
-        );
+		console.log(
+			`Database says ${
+				data?.length ?? 0
+			} active candies on map`
+		);
 
-        if (!data || data.length === 0) {
-            console.log(
-                'No active candies found'
-            );
+		if (!data || data.length === 0) {
+			console.log(
+				'No active candies found'
+			);
 
-            setCandies([]);
-            candiesRef.current = [];
+			setCandies([]);
+			candiesRef.current = [];
 
-            return;
-        }
+			return;
+		}
 
-        data.forEach((candy, index) => {
-            console.log(
-                `Cany nr: Candy #${index + 1}`
-            );
+		data.forEach((candy, index) => {
+			console.log(
+				`Candy nr: Candy #${index + 1}`
+			);
 
-            console.log(
-                `   ID: ${candy.id}`
-            );
+			console.log(
+				`   ID: ${candy.id}`
+			);
 
-            console.log(
-                `   Collected at: ${candy.collected_at}`
-            );
-        });
+			console.log(
+				`   User ID: ${candy.user_id}`
+			);
 
-        setCandies(data);
-        candiesRef.current = data;
-    }
+			console.log(
+				`   Collected at: ${candy.collected_at}`
+			);
+		});
+
+		setCandies(data);
+		candiesRef.current = data;
+	}
 
     /*
      * Get a fresh location when a candy is selected.
@@ -159,7 +162,7 @@ export default function MapScreen() {
         candy: Candy
     ) {
         console.log(
-            ' Candy selected:',
+            'Candy selected:',
             candy.id
         );
 
@@ -317,16 +320,35 @@ export default function MapScreen() {
             return;
         }
 
+        /*
+         * We need the currently logged-in user's ID
+         * so we can save who collected the candy.
+         */
+        if (!userRef.current) {
+            console.log(
+                'No user available, cannot collect candy'
+            );
+            return;
+        }
+
         console.log(
             'User pressed COLLECT:',
             candy.id
+        );
+
+        console.log(
+            'Candy collected by user:',
+            userRef.current.id
         );
 
         setIsCollectingCandy(true);
 
         try {
             const collected =
-                await collectCandy(candy.id);
+                await collectCandy(
+                    candy.id,
+                    userRef.current.id
+                );
 
             if (
                 collected &&
@@ -339,6 +361,11 @@ export default function MapScreen() {
                 console.log(
                     '   Candy ID:',
                     collected.id
+                );
+
+                console.log(
+                    '   Collected by user:',
+                    userRef.current.id
                 );
 
                 console.log(
