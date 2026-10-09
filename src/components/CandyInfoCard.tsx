@@ -21,6 +21,15 @@ type CandyCardProps = {
     isCollecting: boolean;
 };
 
+
+function formatDistance(distance: number): string {
+    if (distance >= 1000) {
+        return `${(distance / 1000).toFixed(2)} km`;
+    }
+
+    return `${Math.round(distance)} m`;
+}
+
 export default function CandyInfoCard({
     candy,
     address,
@@ -129,9 +138,7 @@ export default function CandyInfoCard({
 
                 {distance !== null ? (
                     <Text style={styles.candyDistance}>
-                        {distance < 10
-                            ? `${distance.toFixed(1)} m away`
-                            : `${Math.round(distance)} m away`}
+                        {formatDistance(distance)}
                     </Text>
                 ) : (
                     <Text style={styles.candyDistance}>
