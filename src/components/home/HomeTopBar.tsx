@@ -127,11 +127,16 @@ function NavigationButton({
 
 const styles = StyleSheet.create({
   container: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
+    zIndex: 1000,
     width: "100%",
     minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16123,
+    gap: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
     backgroundColor: "#FFFFFF",
