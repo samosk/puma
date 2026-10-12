@@ -160,8 +160,6 @@ function AnimalCard({
 				{expanded && (
 					<View style={styles.details}>
 						<Text style={styles.detailText}>Total distance: {formatKm(stats.distance_m)}</Text>
-						{/* PLACEHOLDER: godis per djur finns inte i databasen än */}
-						<Text style={styles.detailText}>Number of candies collected: –</Text>
 						<Text style={styles.detailText}>Age: {ageInDays(animal.created_at)} days</Text>
 
 						{!selected && (
