@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
 	ActivityIndicator,
@@ -192,6 +192,8 @@ function EmptySlot({ onPress }: { onPress: () => void }) {
 // SKÄRMEN
 // ---------------------------------------------------------------
 export default function AnimalScreen() {
+	const router = useRouter();
+
 	const [userId, setUserId] = useState<string | null>(null);
 	const [animals, setAnimals] = useState<Animal[]>([]);
 	const [statsByAnimal, setStatsByAnimal] = useState<Record<string, Stats>>({});
@@ -345,6 +347,13 @@ export default function AnimalScreen() {
 		<SafeAreaView style={styles.screen} edges={['top']}>
 			<Text style={styles.title}>Animals</Text>
 
+			{/* TEST: tillfällig knapp till shoppen. Ta bort när hemskärmens knapp fungerar */}
+			<Pressable style={styles.testShopButton} onPress={() => router.push('/shopScreen')}>
+				<Text style={styles.testShopText}>Open shop (test)</Text>
+			</Pressable>
+
+			{error && <Text style={styles.error}>{error}</Text>}
+
 			{error && <Text style={styles.error}>{error}</Text>}
 
 			<ScrollView
@@ -460,6 +469,16 @@ const styles = StyleSheet.create({
 	list: { paddingVertical: 12, paddingBottom: 140, gap: 10 }, // extra botten för navbaren
 	error: { fontSize: 14, color: COLORS.error, marginVertical: 6 },
 	small: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+
+	testShopButton: {
+	alignSelf: 'center',
+	backgroundColor: COLORS.accent,
+	borderRadius: 14,
+	paddingHorizontal: 16,
+	paddingVertical: 8,
+	marginBottom: 4,
+	},
+	testShopText: { color: '#FFFFFF', fontWeight: '600' },
 
 	// Kort
 	cardWrapper: { paddingTop: 14 },
