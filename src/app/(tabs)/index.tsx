@@ -1,7 +1,8 @@
+import { HomeTopBar } from '@/components/home/HomeTopBar';
+import { useProfileBalances } from '@/hooks/use-profile-balances';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ---------------------------------------------------------------
 // WHICH TABLE TO SHOW
@@ -25,6 +26,8 @@ const COLORS = {
 };
 
 export default function HomeScreen() {
+  const { balances, loading: balancesLoading } = useProfileBalances();
+
   // rows    = the data from the table (starts empty)
   // loading = true while waiting for Supabase
   // error   = error message if the request failed, otherwise null
@@ -63,56 +66,63 @@ export default function HomeScreen() {
     loadRows();
   }, [loadRows]);
 
-  // Spinner on the very first load (before any rows have arrived)
-  if (loading && rows.length === 0) {
-    return (
-      <View style={[styles.center, { backgroundColor: COLORS.background }]}>
-        <ActivityIndicator color={COLORS.text} />
-      </View>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      {/* Page title: shows the table name and how many rows came back */}
-      <Text style={styles.title}>{TABLE_NAME}</Text>
-      <Text style={styles.muted}>{rows.length} rows</Text>
-
-      <FlatList
-        data={rows}
-        // Each row needs a unique key; most tables have an "id" column
-        keyExtractor={(item, index) => String(item.id ?? index)}
-        contentContainerStyle={styles.list}
-        // Pull down on the list to reload the data
-        refreshing={loading}
-        onRefresh={loadRows}
-        // Shown when there are no rows: either the error, or a hint
-        ListEmptyComponent={
-          <Text style={error ? styles.error : styles.muted}>
-            {error ?? 'No rows. Check the table has data and a read policy.'}
-          </Text>
-        }
-        // ---------------------------------------------------------------
-        // HOW EACH ROW LOOKS
-        // Right now it lists every column automatically. To design your
-        // own layout, replace the inside of the card with specific
-        // columns, for example:
-        //
-        //   <Text style={styles.value}>{String(item.name)}</Text>
-        //   <Text style={styles.muted}>XP: {String(item.xp)}</Text>
-        // ---------------------------------------------------------------
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            {Object.entries(item).map(([column, value]) => (
-              <View key={column} style={styles.field}>
-                <Text style={styles.key}>{column}</Text>
-                <Text style={styles.value}>{formatValue(value)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+    <View style={styles.screen}>
+      <HomeTopBar
+        candies={balances?.candies ?? null}
+        coins={balances?.coins ?? null}
+        loading={balancesLoading}
       />
-    </SafeAreaView>
+
+      <View style={styles.content}>
+        {loading && rows.length === 0 ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={COLORS.text} />
+          </View>
+        ) : (
+          <>
+            {/* Page title: shows the table name and how many rows came back */}
+            <Text style={styles.title}>{TABLE_NAME}</Text>
+            <Text style={styles.muted}>{rows.length} rows</Text>
+
+            <FlatList
+              data={rows}
+              // Each row needs a unique key; most tables have an "id" column
+              keyExtractor={(item, index) => String(item.id ?? index)}
+              contentContainerStyle={styles.list}
+              // Pull down on the list to reload the data
+              refreshing={loading}
+              onRefresh={loadRows}
+              // Shown when there are no rows: either the error, or a hint
+              ListEmptyComponent={
+                <Text style={error ? styles.error : styles.muted}>
+                  {error ?? 'No rows. Check the table has data and a read policy.'}
+                </Text>
+              }
+              // ---------------------------------------------------------------
+              // HOW EACH ROW LOOKS
+              // Right now it lists every column automatically. To design your
+              // own layout, replace the inside of the card with specific
+              // columns, for example:
+              //
+              //   <Text style={styles.value}>{String(item.name)}</Text>
+              //   <Text style={styles.muted}>XP: {String(item.xp)}</Text>
+              // ---------------------------------------------------------------
+              renderItem={({ item }) => (
+                <View style={styles.card}>
+                  {Object.entries(item).map(([column, value]) => (
+                    <View key={column} style={styles.field}>
+                      <Text style={styles.key}>{column}</Text>
+                      <Text style={styles.value}>{formatValue(value)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            />
+          </>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -128,7 +138,8 @@ function formatValue(value: unknown): string {
 // STYLES — sizes, spacing and layout for everything above
 // ---------------------------------------------------------------
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
+  screen: { flex: 1, backgroundColor: COLORS.background },
+  content: { flex: 1, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 16 },
   muted: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
