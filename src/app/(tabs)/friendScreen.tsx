@@ -1,14 +1,12 @@
+import ChallengeFriendPopup, { ChallengeChoice } from '@/components/challengeFriendPopup';
+import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ---------------------------------------------------------------
-// WHICH TABLE TO SHOW
-// Any table with a read policy works, e.g.:
-// 'animals', 'species', 'profiles', 'cosmetics', 'challenges'
-// ---------------------------------------------------------------
-const TABLE_NAME = 'animals';
 
 // ---------------------------------------------------------------
 // COLORS
@@ -22,41 +20,154 @@ const COLORS = {
   text: '#EEF1F5',
   muted: '#98A2B3',
   error: '#F97066',
+tag: '#EDEDED',
 };
 
-export default function HomeScreen() {
+type Friend = {
+  id: string;
+  username: string;
+  	animal: { 
+		name: string; 
+		xp: number 
+		species: { name: string; asset_key: string } | null
+	} | null;
+};
+
+const SPRITES: Record<string, number> = {};
+const FALLBACK_EMOJI = '🐾';
+
+function Sprite({ assetKey, size = 56 }: { assetKey?: string; size?: number }) {
+  const source = assetKey ? SPRITES[assetKey] : undefined;
+  if (source) {
+	return <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />;
+  }
+  return (
+	<View style={[styles.spritePlaceholder, { width: size, height: size }]}>
+	  <Text style={{ fontSize: size * 0.5 }}>{FALLBACK_EMOJI}</Text>
+	</View>
+  );
+}
+
+function FriendCard({
+	  friend,
+	  expanded,
+	  onPress,
+	  onChallenge,
+	}: {
+		friend : Friend;
+		expanded: boolean;
+		onPress: () => void;
+		onChallenge: () => void;
+	}) {
+	  return (
+		<Pressable onPress={onPress} style={styles.card}
+		accessibilityRole="button"
+		accessibilityLabel={friend.username}
+		>
+		<View style={styles.row}>
+		<Sprite assetKey={friend.animal?.species?.asset_key} />
+		  <View style={styles.info}>
+			<Text style={styles.value}>{friend.username}</Text>
+			{friend.animal ? (
+				<Text style={styles.muted}>
+					{friend.animal.name} {friend.animal.xp}
+				</Text>
+			) : (
+				<Text style={styles.muted}>No animal yet</Text>
+			)}
+			</View>
+		</View>
+		  {expanded && (
+			<View style={styles.details}>
+			<Pressable style={styles.challengeButton} onPress={onChallenge}>
+			  <Text style={styles.challengeButtonText}>Challenge</Text>
+			</Pressable>
+			</View>
+		  )}
+		</Pressable>
+	  );
+}
+
+export default function FriendsScreen() {
+	const {session} = useAuth();
+	const userId = session?.user.id;
   // rows    = the data from the table (starts empty)
   // loading = true while waiting for Supabase
   // error   = error message if the request failed, otherwise null
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [rows, setRows] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
+
+  const[challengeTarget, setChallengeTarget] = useState<Friend | null>(null);
+  function challengeFriend(friend: Friend) {
+	setChallengeTarget(friend);
+  }
+
+  function sendChallenge(choice: ChallengeChoice) {
+	console.log('Challenge sent to', challengeTarget?.username, choice);
+	setChallengeTarget(null);
+	router.navigate('/challengeScreen');
+  }
 
   // Fetches the data from Supabase.
   // useCallback just keeps this function stable so useEffect below
   // doesn't re-run it on every render.
   const loadRows = useCallback(async () => {
+	if(!userId) return;
 	setLoading(true);
+	setError(null);
 
-	// ---------------------------------------------------------------
-	// THE QUERY — this is the part you'll change most often.
-	// Add or swap lines to change what data comes back:
-	//
-	//   .select('name, xp')                  only these columns
-	//   .select('*, species(name)')          also include the related species' name
-	//   .eq('owner_id', 'some-uuid')         only rows where owner_id matches
-	//   .gt('xp', 100)                       only rows where xp is greater than 100
-	//   .order('xp', { ascending: false })   sort by xp, highest first
-	//   .limit(10)                           at most 10 rows
-	// ---------------------------------------------------------------
-	const { data, error } = await supabase
-	  .from(TABLE_NAME)
-	  .select('*');
+	const { data: friendships, error: friendshipsError} = await supabase
+	  .from('friendships')
+	  .select('requester_id, adresser_id')
+	  .or(`requester_id.eq.${userId},adresser_id.eq.${userId}`)
+	  .eq('status', 'accepted');
+	
+	if (friendshipsError) {
+		setError(friendshipsError.message);
+		setLoading(false);
+		return;
+	}
 
-	setRows(data ?? []);
-	setError(error ? error.message : null);
+	const friendIds = (friendships ?? []).map((friendship) => friendship.requester_id === userId ? friendship.adresser_id : friendship.requester_id);
+
+	if (friendIds.length === 0) {
+		setRows([]);
+		setLoading(false);
+		return;
+	}
+
+	const { data: profiles, error: profileError } = await supabase
+	  .from('profiles')
+	  .select('id, username')
+	  .in('id', friendIds);
+
+	if (profileError) {
+		setError(profileError.message);
+		setLoading(false);
+		return;
+	}
+
+	const {data: animals, error: animalError} = await supabase
+		.from('animals')
+		.select('owner_id, name, xp, species(name, asset_key)')
+		.in('owner_id', friendIds);
+
+	if (animalError) {
+		setError(animalError.message);
+		setLoading(false);
+		return;
+	}
+
+	const friends = (profiles ?? []).map((profile) => ({
+		...profile,
+		animal: animals?.find((animal) => animal.owner_id === profile.id) || null
+	})) as unknown as Friend[];
+
+	setRows(friends);
 	setLoading(false);
-  }, []);
+  }, [userId]);
 
   // Run loadRows once when the screen first opens
   useEffect(() => {
@@ -70,18 +181,17 @@ export default function HomeScreen() {
 		<ActivityIndicator color={COLORS.text} />
 	  </View>
 	);
-  }
+  };
 
   return (
 	<SafeAreaView style={styles.screen} edges={['top']}>
 	  {/* Page title: shows the table name and how many rows came back */}
-	  <Text style={styles.title}>{TABLE_NAME}</Text>
-	  <Text style={styles.muted}>{rows.length} rows</Text>
+	  <Text style={styles.title}>Friends</Text>
 
 	  <FlatList
 		data={rows}
 		// Each row needs a unique key; most tables have an "id" column
-		keyExtractor={(item, index) => String(item.id ?? index)}
+		keyExtractor={(item) => item.id}
 		contentContainerStyle={styles.list}
 		// Pull down on the list to reload the data
 		refreshing={loading}
@@ -89,7 +199,7 @@ export default function HomeScreen() {
 		// Shown when there are no rows: either the error, or a hint
 		ListEmptyComponent={
 		  <Text style={error ? styles.error : styles.muted}>
-			{error ?? 'No rows. Check the table has data and a read policy.'}
+			{error ?? 'No friends yet LOL'}
 		  </Text>
 		}
 		// ---------------------------------------------------------------
@@ -98,19 +208,21 @@ export default function HomeScreen() {
 		// own layout, replace the inside of the card with specific
 		// columns, for example:
 		//
-		//   <Text style={styles.value}>{String(item.name)}</Text>
-		//   <Text style={styles.muted}>XP: {String(item.xp)}</Text>
 		// ---------------------------------------------------------------
 		renderItem={({ item }) => (
-		  <View style={styles.card}>
-			{Object.entries(item).map(([column, value]) => (
-			  <View key={column} style={styles.field}>
-				<Text style={styles.key}>{column}</Text>
-				<Text style={styles.value}>{formatValue(value)}</Text>
-			  </View>
-			))}
-		  </View>
+			<FriendCard
+				friend={item}
+				expanded={expandedFriendId === item.id}
+				onPress={() => setExpandedFriendId(expandedFriendId === item.id ? null : item.id)}
+				onChallenge={() => challengeFriend(item)}
+			/>
 		)}
+	  />
+	  <ChallengeFriendPopup
+		visible={challengeTarget !== null}
+		friendName={challengeTarget?.username ?? ''}
+		onClose={() => setChallengeTarget(null)}
+		onConfirm={sendChallenge}
 	  />
 	</SafeAreaView>
   );
@@ -145,4 +257,29 @@ const styles = StyleSheet.create({
   field: { flexDirection: 'row', gap: 12 },
   key: { width: 110, fontSize: 13, color: COLORS.muted },
   value: { flex: 1, fontSize: 15, color: COLORS.text },
+
+  //Styling grejer
+  details: {
+	marginTop: 12,
+	paddingTop: 12,
+	borderTopWidth: 1,
+	borderTopColor: COLORS.border,
+	gap: 10,
+  },
+  	row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+	info: { flex: 1 },
+  challengeButton: {
+	alignSelf: 'flex-start',
+	backgroundColor: COLORS.muted,
+	borderRadius: 14,
+	paddingHorizontal: 16,
+	paddingVertical: 8,
+  },
+  challengeButtonText: { color: '#FFFFFF', fontWeight: '600' },
+  spritePlaceholder: {
+    backgroundColor: COLORS.tag,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
