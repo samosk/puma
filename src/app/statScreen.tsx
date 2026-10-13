@@ -2,41 +2,56 @@ import LogoutButton from '@/components/logout-button';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // How many days of history to show
 const HISTORY_DAYS = 7;
 
-// Height of the bar charts in pixels
-const CHART_HEIGHT = 140;
-
 // Used if the user has no personal goal set (profiles.daily_step_goal)
 const DEFAULT_STEP_GOAL = 5000;
 
+// Sizes
+const PROGRESS_BAR_HEIGHT = 44; // daily goal bar
+const PROGRESS_ICON_SIZE = 40; // cat inside the daily goal bar
+const ACTIVITY_BAR_HEIGHT = 150; // height of each pill in the activity chart
+const ACTIVITY_BAR_WIDTH = 32;
+const CANDY_CHART_HEIGHT = 120; // height of the tallest candy bar
+
+// ---------------------------------------------------------------
+// COLORS (from the Figma design)
+// ---------------------------------------------------------------
 const COLORS = {
-  background: '#101318',
-  card: '#1A1E25',
-  border: '#2A303A',
-  text: '#EEF1F5',
-  muted: '#98A2B3',
-  accent: '#5B8DEF',
-  error: '#F97066',
-  barSteps: '#3B4A66', // past days in the steps chart (today uses accent)
-  barCandies: '#6B3B66', // past days in the candies chart (today uses candyToday)
-  candyToday: '#E05FD0',
-  goal: '#3FB37F', // the goal line, and bars that reached the goal
-  streak: '#F28C28', // the streak badge in the step progress card
+  background: '#EDEDED',
+  card: '#FFFFFF',
+  text: '#1E1E1E',
+  muted: '#8A8A8A',
+  icon: '#4A4A4A', // header icons (back arrow, settings)
+  blue: '#5592E0', // progress fill, today, candy bars
+  blueBorder: '#3F7AC8',
+  track: '#D9D9D9', // empty part of the daily goal bar
+  activityTrack: '#B8B8B8', // empty part of the activity pills
+  activityFill: '#8F8F8F', // past days' steps
+  activityBorder: '#6E6E6E',
+  dash: '#9A9A9A', // dashed lines above/below the activity pills
+  streakBg: '#FBE2C4',
+  streakText: '#D0562A',
+  error: '#D92D20',
 };
 
 type Profile = {
-  username: string;
-  candies: number;
-  coins: number;
   current_streak: number;
-  active_animal_id: string | null;
   daily_step_goal: number | null;
 };
 
@@ -46,19 +61,20 @@ type ActivityDay = {
   candies_collected: number;
 };
 
-type CatToday = {
-  animal_id: string;
+type ChartDay = {
+  label: string; // 'FRI'
+  isToday: boolean;
   steps: number;
-  animals: { name: string } | null; // the cat's name, joined from animals
+  candies: number;
 };
 
 export default function StatsScreen() {
+  const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user.id;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [days, setDays] = useState<ActivityDay[]>([]);
-  const [catsToday, setCatsToday] = useState<CatToday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,11 +83,11 @@ export default function StatsScreen() {
     setLoading(true);
     setError(null);
 
-    const [profileResult, activityResult, catsResult] = await Promise.all([
-      // The logged-in user's profile (totals, streak, active cat)
+    const [profileResult, activityResult] = await Promise.all([
+      // The logged-in user's profile (totals, streak, goal)
       supabase
         .from('profiles')
-        .select('username, candies, coins, current_streak, active_animal_id, daily_step_goal')
+        .select('current_streak, daily_step_goal')
         .eq('id', userId)
         .single(),
 
@@ -81,24 +97,14 @@ export default function StatsScreen() {
         .select('date, steps, candies_collected')
         .eq('id', userId)
         .gte('date', localDateString(-(HISTORY_DAYS - 1))),
-
-      // Today's steps per cat, most steps first.
-      // "animals(name)" pulls in each cat's name from the animals table.
-      supabase
-        .from('animal_activity_days')
-        .select('animal_id, steps, animals(name)')
-        .eq('owner_id', userId)
-        .eq('date', localDateString(0))
-        .order('steps', { ascending: false }),
     ]);
 
-    const firstError = profileResult.error ?? activityResult.error ?? catsResult.error;
+    const firstError = profileResult.error ?? activityResult.error;
     if (firstError) {
       setError(firstError.message);
     } else {
       setProfile(profileResult.data);
       setDays(activityResult.data ?? []);
-      setCatsToday((catsResult.data as unknown as CatToday[]) ?? []);
     }
     setLoading(false);
   }, [userId]);
@@ -122,11 +128,10 @@ export default function StatsScreen() {
   // Today's row, if the user has been active today
   const today = days.find((d) => d.date === localDateString(0));
   const stepsToday = today?.steps ?? 0;
-  const candiesToday = today?.candies_collected ?? 0;
 
   // One entry per day for the charts, oldest first (left) to today (right).
   // Days without a row in the database count as 0.
-  const chartDays = Array.from({ length: HISTORY_DAYS }, (_, i) => {
+  const chartDays: ChartDay[] = Array.from({ length: HISTORY_DAYS }, (_, i) => {
     const date = localDateString(i - (HISTORY_DAYS - 1));
     const row = days.find((d) => d.date === date);
     return {
@@ -138,12 +143,27 @@ export default function StatsScreen() {
   });
 
   const stepGoal = profile?.daily_step_goal ?? DEFAULT_STEP_GOAL;
-
   const averageSteps = Math.round(chartDays.reduce((sum, d) => sum + d.steps, 0) / HISTORY_DAYS);
-  const totalCandies = chartDays.reduce((sum, d) => sum + d.candies, 0);
+  const averageCandies = Math.round(chartDays.reduce((sum, d) => sum + d.candies, 0) / HISTORY_DAYS);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
+      {/* ---------- HEADER ---------- */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => router.canGoBack() && router.back()}
+          hitSlop={12}
+          accessibilityLabel="Go back"
+        >
+          <MaterialCommunityIcons name="arrow-left" size={34} color={COLORS.icon} />
+        </Pressable>
+        <Text style={styles.headerTitle}>My stats</Text>
+        {/* Settings: not wired up yet */}
+        <Pressable hitSlop={12} accessibilityLabel="Settings">
+          <MaterialCommunityIcons name="cog" size={34} color={COLORS.icon} />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
@@ -151,45 +171,13 @@ export default function StatsScreen() {
           <RefreshControl refreshing={loading} onRefresh={loadStats} tintColor={COLORS.text} />
         }
       >
-        <Text style={styles.title}>{profile ? `Hi, ${profile.username}` : 'Your stats'}</Text>
-
         {error && <Text style={styles.error}>{error}</Text>}
 
-        {/* ---------- TODAY ---------- */}
-        <Text style={styles.sectionTitle}>Today</Text>
-        <StepProgressCard
-          steps={stepsToday}
-          goal={stepGoal}
-          streak={profile?.current_streak ?? 0}
-        />
+        <StepProgressCard steps={stepsToday} goal={stepGoal} streak={profile?.current_streak ?? 0} />
 
-        {/* ---------- LAST 7 DAYS: BAR CHARTS ---------- */}
-        <Text style={styles.sectionTitle}>Last {HISTORY_DAYS} days</Text>
+        <ActivityCard days={chartDays} goal={stepGoal} averageSteps={averageSteps} />
 
-        <View style={styles.card}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Steps</Text>
-            <Text style={styles.muted}>avg {averageSteps.toLocaleString()} / day</Text>
-          </View>
-          <BarChart
-            data={chartDays.map((d) => ({ label: d.label, value: d.steps, highlight: d.isToday }))}
-            color={COLORS.barSteps}
-            highlightColor={COLORS.accent}
-            goal={stepGoal}
-          />
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Candies</Text>
-            <Text style={styles.muted}>{totalCandies} this week</Text>
-          </View>
-          <BarChart
-            data={chartDays.map((d) => ({ label: d.label, value: d.candies, highlight: d.isToday }))}
-            color={COLORS.barCandies}
-            highlightColor={COLORS.candyToday}
-          />
-        </View>
+        <CandyCard days={chartDays} averageCandies={averageCandies} />
 
         <LogoutButton />
       </ScrollView>
@@ -198,12 +186,58 @@ export default function StatsScreen() {
 }
 
 // ---------------------------------------------------------------
-// STEP PROGRESS
-// Today's steps as a progress bar towards the daily goal.
-// The bar fills from left to right and turns green when the goal
-// is reached. Steps beyond the goal keep counting, but the bar
-// stays full.
-// The orange badge next to the percentage shows the step streak.
+// CARD HEADER
+// Icon + grey label on the left, optional label + big number on the right.
+// Shared by all three cards.
+// ---------------------------------------------------------------
+function CardHeader({
+  icon,
+  title,
+  right,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <View style={styles.cardHeader}>
+      <View style={styles.cardHeaderLeft}>
+        {icon}
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
+      {right}
+    </View>
+  );
+}
+
+// "Daily average steps   9800"
+function AverageLabel({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.averageRow}>
+      <Text style={styles.averageLabel}>{label}</Text>
+      <Text style={styles.averageValue}>{value}</Text>
+    </View>
+  );
+}
+
+// "FRI SAT SUN ... THU" with today highlighted in blue
+function DayLabels({ days }: { days: ChartDay[] }) {
+  return (
+    <View style={styles.dayLabelsRow}>
+      {days.map((d, i) => (
+        <View key={i} style={styles.dayLabelCell}>
+          <Text style={[styles.dayLabel, d.isToday && styles.dayLabelToday]}>{d.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------
+// DAILY GOAL CARD
+// Today's steps as a progress bar towards the daily goal, with the
+// cat riding at the end of the filled part. The streak sits in the
+// peach pill at the top right.
 // ---------------------------------------------------------------
 function StepProgressCard({
   steps,
@@ -217,116 +251,152 @@ function StepProgressCard({
   const goal = Math.max(rawGoal, 1); // avoid dividing by 0
   const progress = Math.min(steps / goal, 1); // 0 to 1
   const percent = Math.round((steps / goal) * 100);
-  const fillColor = COLORS.accent;
 
   return (
     <View style={styles.card}>
-      <View style={styles.progressHeader}>
-        <Text style={styles.muted}>Daily goal</Text>
-        <View style={styles.progressHeaderRight}>
-          {/* Streak badge */}
+      <CardHeader
+        icon={<MaterialCommunityIcons name="paw" size={22} color={COLORS.muted} />}
+        title="Daily goal"
+        right={
           <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>
-              {streak} {'day streak'}
-            </Text>
-            <MaterialCommunityIcons name="fire" size={16} color="#FFFFFF" />
+            <Text style={styles.streakText}>{streak} day streak</Text>
+            <MaterialCommunityIcons name="fire" size={20} color={COLORS.streakText} />
           </View>
-        </View>
-      </View>
+        }
+      />
 
       <View style={styles.progressValueRow}>
-        <Text style={styles.statValue}>
+        <Text style={styles.stepsValue}>
           {steps.toLocaleString()}
-          <Text style={styles.progressGoal}> Steps today</Text>
+          <Text style={styles.stepsLabel}> Steps today</Text>
         </Text>
-        <Text style={[styles.progressPercent, { color: fillColor }]}>{percent}%</Text>
+        <Text style={styles.progressPercent}>{percent}%</Text>
       </View>
 
-      {/* The bar: a filled part and an empty part, sized by flex */}
+      {/* The bar: a filled part and an empty part, sized by flex.
+          The fill never gets narrower than the cat, so the cat is
+          always fully inside it. */}
       <View style={styles.progressTrack}>
-        <View style={{ flex: progress, backgroundColor: fillColor, borderRadius: 6 }} />
+        <View style={[styles.progressFill, { flex: progress }]}>
+          <View style={styles.progressIcon}>
+            <Image
+              source={require('@/assets/misc/cat_progress_bar.png')}
+              style={{ width: PROGRESS_ICON_SIZE, height: PROGRESS_ICON_SIZE }}
+            />
+          </View>
+        </View>
         <View style={{ flex: 1 - progress }} />
       </View>
 
-      <Text style={styles.muted}>
-        {'out of'} {(goal).toLocaleString()} {'steps'}
-      </Text>
+      <Text style={styles.progressFooter}>out of {goal.toLocaleString()} steps</Text>
     </View>
   );
 }
 
 // ---------------------------------------------------------------
-// BAR CHART
-// Built from plain Views, so no extra package is needed.
-// Each bar's height is its value compared to the highest value.
-// The highlighted bar (today) gets highlightColor.
-// Optional goal: draws a line at the goal, and bars that reached
-// it turn COLORS.goal. The chart scales so the line always fits.
+// ACTIVITY CARD
+// One pill per day. The full pill is the daily goal; the darker
+// fill inside is how far the user got (full = goal reached).
+// Today's fill is blue.
 // ---------------------------------------------------------------
-type Bar = { label: string; value: number; highlight?: boolean };
-
-// Space above the tallest bar for its value text
-const VALUE_TEXT_SPACE = 18;
-
-function BarChart({
-  data,
-  color,
-  highlightColor,
+function ActivityCard({
+  days,
   goal,
+  averageSteps,
 }: {
-  data: Bar[];
-  color: string;
-  highlightColor: string;
-  goal?: number;
+  days: ChartDay[];
+  goal: number;
+  averageSteps: number;
 }) {
-  // The highest value on the chart: the biggest bar, or the goal if higher
-  const max = Math.max(...data.map((d) => d.value), goal ?? 0, 1);
-  const maxBarHeight = CHART_HEIGHT - VALUE_TEXT_SPACE;
-  const toHeight = (value: number) => (value / max) * maxBarHeight;
-
   return (
-    <View>
-      {/* Bars (with the goal line drawn over them) */}
-      <View style={styles.barsArea}>
-        {data.map((bar, i) => {
-          const reachedGoal = goal !== undefined && bar.value >= goal;
-          const barColor = reachedGoal ? COLORS.goal : bar.highlight ? highlightColor : color;
-          const height = bar.value > 0 ? Math.max(4, toHeight(bar.value)) : 0;
+    <View style={styles.card}>
+      <CardHeader
+        icon={
+          <View style={styles.iconCircle}>
+            <MaterialCommunityIcons name="pulse" size={16} color={COLORS.card} />
+          </View>
+        }
+        title="Activity"
+        right={<AverageLabel label="Daily average steps" value={averageSteps.toLocaleString()} />}
+      />
+
+      <DayLabels days={days} />
+
+      <View style={styles.activityRow}>
+        {days.map((d, i) => {
+          const progress = Math.min(d.steps / Math.max(goal, 1), 1);
+          // At least as tall as it is wide when there are steps, so it stays a pill
+          const fillHeight =
+            d.steps > 0 ? Math.max(ACTIVITY_BAR_WIDTH, progress * ACTIVITY_BAR_HEIGHT) : 0;
+
           return (
-            <View key={i} style={styles.barColumn}>
-              <Text style={[styles.barValue, bar.highlight && { color: COLORS.text }]}>
-                {compactNumber(bar.value)}
-              </Text>
-              <View style={[styles.bar, { height, backgroundColor: barColor }]} />
+            <View key={i} style={styles.activityColumn}>
+              <Dashes />
+              <View style={styles.activityTrack}>
+                {fillHeight > 0 && (
+                  <View
+                    style={[
+                      styles.activityFill,
+                      { height: fillHeight },
+                      d.isToday && { backgroundColor: COLORS.blue, borderColor: COLORS.blueBorder },
+                    ]}
+                  />
+                )}
+              </View>
+              <Dashes />
             </View>
           );
         })}
-
-        {goal !== undefined && (
-          <View style={[styles.goalLine, { bottom: toHeight(goal) }]}>
-            <Text style={styles.goalLabel}>Goal {compactNumber(goal)}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Day labels */}
-      <View style={styles.labelsRow}>
-        {data.map((bar, i) => (
-          <Text
-            key={i}
-            style={[styles.barLabel, bar.highlight && { color: COLORS.text, fontWeight: '600' }]}
-          >
-            {bar.label}
-          </Text>
-        ))}
       </View>
     </View>
   );
 }
 
-// 5230 -> '5.2k', 42 -> '42'
-function compactNumber(n: number) {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+// The short dashed line above and below each activity pill
+function Dashes() {
+  return (
+    <View style={styles.dashes}>
+      <View style={styles.dash} />
+      <View style={styles.dash} />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------
+// CANDY CARD
+// Blue bars on a blue baseline, with the number inside each bar.
+// ---------------------------------------------------------------
+function CandyCard({ days, averageCandies }: { days: ChartDay[]; averageCandies: number }) {
+  const max = Math.max(...days.map((d) => d.candies), 1);
+
+  return (
+    <View style={styles.card}>
+      <CardHeader
+        icon={<MaterialCommunityIcons name="candy-outline" size={22} color={COLORS.muted} />}
+        title="Candies"
+        right={<AverageLabel label="Daily average collected" value={String(averageCandies)} />}
+      />
+
+      <DayLabels days={days} />
+
+      <View style={styles.candyBarsArea}>
+        {days.map((d, i) => {
+          // Tall enough to fit the number when there are candies
+          const height = d.candies > 0 ? Math.max(28, (d.candies / max) * CANDY_CHART_HEIGHT) : 0;
+          return (
+            <View key={i} style={styles.candyColumn}>
+              {height > 0 && (
+                <View style={[styles.candyBar, { height }]}>
+                  <Text style={styles.candyValue}>{d.candies}</Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.candyBaseline} />
+    </View>
+  );
 }
 
 // Date as 'YYYY-MM-DD' in the phone's local time.
@@ -339,102 +409,149 @@ function localDateString(offsetDays: number) {
   return `${d.getFullYear()}-${month}-${day}`;
 }
 
-// 'YYYY-MM-DD' -> short weekday, e.g. 'Mon'
+// 'YYYY-MM-DD' -> 'FRI' (English, to match the rest of the app)
 function shortDay(date: string) {
   const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' });
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, gap: 12 },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text, marginTop: 8 },
-  row: { flexDirection: 'row', gap: 12 },
+  content: { padding: 20, gap: 20 },
+  error: { fontSize: 14, color: COLORS.error },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  headerTitle: { fontSize: 28, fontWeight: '700', color: COLORS.text },
+
+  // Cards
   card: {
     backgroundColor: COLORS.card,
-    borderColor: COLORS.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    gap: 4,
+    borderRadius: 20,
+    padding: 18,
+    gap: 10,
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
   },
-  statCard: { flex: 1 },
-  statValue: { fontSize: 30, fontWeight: '700', color: COLORS.text },
-  statValueSmall: { fontSize: 20, fontWeight: '600', color: COLORS.text },
-  muted: { fontSize: 14, color: COLORS.muted },
-  error: { fontSize: 14, color: COLORS.error },
-  listRow: { flexDirection: 'row', paddingVertical: 6 },
-  listLabel: { flex: 1.2, fontSize: 15, color: COLORS.text },
-  listValue: { flex: 1, fontSize: 15, color: COLORS.muted, textAlign: 'right' },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardTitle: { fontSize: 17, fontWeight: '500', color: COLORS.muted },
+  iconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  averageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  averageLabel: { fontSize: 14, color: COLORS.muted },
+  averageValue: { fontSize: 24, fontWeight: '700', color: COLORS.text },
 
-  // Step progress
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  progressHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Day labels
+  dayLabelsRow: { flexDirection: 'row', marginTop: 4 },
+  dayLabelCell: { flex: 1, alignItems: 'center' },
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  dayLabelToday: {
+    backgroundColor: COLORS.blue,
+    color: COLORS.card,
+    borderRadius: 4,
+    overflow: 'hidden', // needed for the rounded background on iOS
+  },
+
+  // Daily goal
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.streak,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: COLORS.streakBg,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
-  streakText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  progressPercent: { fontSize: 16, fontWeight: '700' },
-  progressGoal: { fontSize: 18, fontWeight: '500', color: COLORS.muted },
-  progressTrack: {
-    flexDirection: 'row',
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: COLORS.border,
-    overflow: 'hidden',
-    marginVertical: 6,
-  },
+  streakText: { color: COLORS.streakText, fontSize: 16, fontWeight: '600' },
   progressValueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
   },
-
-  // Charts
-  chartHeader: {
+  stepsValue: { fontSize: 30, fontWeight: '800', color: COLORS.text },
+  stepsLabel: { fontSize: 18, fontWeight: '600', color: COLORS.text },
+  progressPercent: { fontSize: 24, fontWeight: '700', color: COLORS.text },
+  progressTrack: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
+    height: PROGRESS_BAR_HEIGHT,
+    borderRadius: PROGRESS_BAR_HEIGHT / 2, // fully rounded ends
+    backgroundColor: COLORS.track,
+    overflow: 'hidden', // clips the cat's feet at the bottom edge
   },
-  chartTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  goalReached: { fontSize: 14, color: COLORS.goal, fontWeight: '600' },
-  barsArea: {
-    height: CHART_HEIGHT,
+  progressFill: {
+    backgroundColor: COLORS.blue,
+    minWidth: PROGRESS_ICON_SIZE + PROGRESS_BAR_HEIGHT / 2,
+    borderRadius: PROGRESS_BAR_HEIGHT / 2,
+  },
+  progressIcon: {
+    position: 'absolute',
+    right: PROGRESS_BAR_HEIGHT / 4,
+    bottom: -6, // pushes the cat slightly below the bar, like it's walking along it
+  },
+  progressFooter: { fontSize: 14, color: COLORS.muted },
+
+  // Activity chart
+  activityRow: { flexDirection: 'row', marginTop: 2 },
+  activityColumn: { flex: 1, alignItems: 'center' },
+  activityTrack: {
+    width: ACTIVITY_BAR_WIDTH,
+    height: ACTIVITY_BAR_HEIGHT,
+    borderRadius: ACTIVITY_BAR_WIDTH / 2,
+    backgroundColor: COLORS.activityTrack,
+    justifyContent: 'flex-end', // fill grows from the bottom
+    overflow: 'hidden',
+  },
+  activityFill: {
+    width: '100%',
+    borderRadius: ACTIVITY_BAR_WIDTH / 2,
+    backgroundColor: COLORS.activityFill,
+    borderWidth: 1,
+    borderColor: COLORS.activityBorder,
+  },
+  dashes: { gap: 3, paddingVertical: 3 },
+  dash: { width: 2, height: 5, backgroundColor: COLORS.dash, borderRadius: 1 },
+
+  // Candy chart
+  candyBarsArea: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 6,
-    marginTop: 8,
+    height: CANDY_CHART_HEIGHT,
+    marginTop: 12,
   },
-  barColumn: { flex: 1, alignItems: 'center', gap: 4 },
-  barValue: { fontSize: 11, color: COLORS.muted },
-  bar: { width: '100%', borderRadius: 6 },
-  goalLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: COLORS.goal,
-    opacity: 0.8,
-    pointerEvents: 'none',
+  candyColumn: { flex: 1, alignItems: 'center' },
+  candyBar: {
+    width: '70%',
+    backgroundColor: COLORS.blue,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    alignItems: 'center',
+    paddingTop: 6,
   },
-  goalLabel: {
-    position: 'absolute',
-    right: 0,
-    bottom: 4,
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.goal,
-    backgroundColor: COLORS.card,
-    paddingHorizontal: 4,
-  },
-  labelsRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
-  barLabel: { flex: 1, textAlign: 'center', fontSize: 12, color: COLORS.muted },
+  candyValue: { color: COLORS.card, fontSize: 15, fontWeight: '700' },
+  candyBaseline: { height: 4, backgroundColor: COLORS.blue, borderRadius: 2 },
 });
