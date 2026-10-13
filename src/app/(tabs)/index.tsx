@@ -4,6 +4,7 @@ import { HomeTopBar } from "@/components/home/HomeTopBar";
 import type { HomeAppearance } from "@/components/home/home-assets";
 import { useActiveCat } from "@/hooks/use-active-cat";
 import { useProfileBalances } from "@/hooks/use-profile-balances";
+import { router } from "expo-router";
 import {
   ActivityIndicator,
   ScrollView,
@@ -69,14 +70,13 @@ export default function HomeScreen() {
           <ActivityIndicator color="#494949" style={styles.catLoading} />
         ) : null}
       </View>
-      {/* Temp, remove code block and un-comment below */}
-      <HomeFloatingActions style={styles.floatingActions} />
+      
 
-      {/* <HomeFloatingActions
-        onShopPress={() => router.push("/shopScreen")}
-        onWardrobePress={() => router.push("/wardrobeScreen")}
+      <HomeFloatingActions
+        onShopPress={() => router.push("../shopScreen")}
+        onWardrobePress={() => router.push("../wardrobeScreen")}
         style={styles.floatingActions}
-      /> */}
+      />
     </View>
   );
 }
