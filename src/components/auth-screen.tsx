@@ -11,6 +11,8 @@ import {
     View,
 } from 'react-native';
 
+import { useRouter } from 'expo-router';
+
 // Same palette as the index screen; change freely
 const COLORS = {
   background: '#101318',
@@ -100,6 +102,21 @@ export default function AuthScreen() {
       setMode('signIn');
     }
   }
+
+
+	async function handleSwitchAccount() {
+		const { error } = await supabase.auth.signOut();
+		const router = useRouter();
+
+		if (error) {
+			setMessage({
+				text: 'Could not sign out. Please try again.',
+				isError: true,
+			});
+			console.error('Sign-out failed:', error);
+			return;
+		}
+	}
 
   return (
     <KeyboardAvoidingView

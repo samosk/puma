@@ -1,6 +1,6 @@
 
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Image,
@@ -20,6 +20,8 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { completeOnBoarding } from '../functions/completeOnBoarding';
 
+
+
 const COLORS = {
     background: '#F2F3F5',
     card: '#FFFFFF',
@@ -33,6 +35,8 @@ const COLORS = {
 const CAT_SPRITES: Record<string, ImageSourcePropType> = {
     cat_tuxedo: require('../../assets/cat/cat_tuxedo.png'),
     cat_orange: require('../../assets/cat/cat_orange.png'),
+    cat_white: require('../../assets/cat/cat_white.png'),
+    cat_grey: require('../../assets/cat/cat_tabby.png'),
 };
 
 type Species = {
@@ -41,20 +45,40 @@ type Species = {
     asset_key: string;
 };
 
-const TUTORIALS = [
+const TUTORIAL_SCREENSHOTS = [
     {
-        title: 'Explore the world',
+        id: 'animal-state',
+        title: 'Animal State',
         description:
-            'Explore the map, discover candy spawns, and collect rewards as you move around.',
-        icon: '🗺️',
+            'Info about the animal state and how it works.',
+        image: CAT_SPRITES.cat_tuxedo,
     },
     {
-        title: 'Grow with your cat',
+        id: 'map',
+        title: 'Map',
         description:
-            'Collect candies, earn coins, and build your progress with your animal.',
-        icon: '🐾',
+            'Info about the map and how candies etc works',
+        image: CAT_SPRITES.cat_orange,
+    },
+    {
+        id: 'room',
+        title: 'Room',
+        description:
+            'Info about the room and how to customize it.',
+        image: CAT_SPRITES.cat_white,
+    },
+    {
+        id: 'shop',
+        title: 'Shop',
+        description:
+            'Info about the shop and how to purchase items.',
+        image: CAT_SPRITES.cat_grey,
     },
 ];
+
+const FIRST_TUTORIAL_STEP = 2;
+const LAST_TUTORIAL_STEP = FIRST_TUTORIAL_STEP + TUTORIAL_SCREENSHOTS.length - 1;
+
 
 export default function OnBoardingScreen() {
     const router = useRouter();
@@ -68,7 +92,10 @@ export default function OnBoardingScreen() {
     const [isEditingName, setIsEditingName] = useState(false);
     const [loadingCats, setLoadingCats] = useState(true);
     const [busy, setBusy] = useState(false);
+    const [switchingAccount, setSwitchingAccount] = useState(false);
     const [message, setMessage] = useState('');
+
+    const tutorialScrollRef = useRef<ScrollView>(null);
 
     const selectedCat = cats.find(
         (cat) => cat.id === selectedSpeciesId,
@@ -84,7 +111,12 @@ export default function OnBoardingScreen() {
             const { data, error } = await supabase
                 .from('species')
                 .select('id, name, asset_key')
-                .in('asset_key', ['cat_tuxedo', 'cat_orange'])
+                .in('asset_key', [
+                    'cat_tuxedo',
+                    'cat_orange',
+                    'cat_white',
+                    'cat_grey',
+                ])
                 .order('name');
 
             if (error) {
@@ -123,6 +155,37 @@ export default function OnBoardingScreen() {
 
         fetchCats();
     }, []);
+
+    useEffect(() => {
+        if (step >= FIRST_TUTORIAL_STEP && step <= LAST_TUTORIAL_STEP) {
+            tutorialScrollRef.current?.scrollTo({
+                x: (step - FIRST_TUTORIAL_STEP) * carouselWidth,
+                animated: false,
+            });
+        }
+    }, [step, carouselWidth]);
+
+    async function handleSwitchAccount() {
+        if (switchingAccount) return;
+
+        setSwitchingAccount(true);
+        setMessage('');
+
+        try {
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+                console.error('Sign-out failed:', error);
+                setMessage('Could not sign out. Please try again.');
+                return;
+            }
+        } catch (error) {
+            console.error('Unexpected sign-out error:', error);
+            setMessage('Could not sign out. Please try again.');
+        } finally {
+            setSwitchingAccount(false);
+        }
+    }
 
     function goBack() {
         setMessage('');
@@ -199,6 +262,7 @@ export default function OnBoardingScreen() {
     ) {
         return (
             <Pressable
+                key={label}
                 onPress={onPress}
                 disabled={disabled}
                 style={[
@@ -247,6 +311,7 @@ export default function OnBoardingScreen() {
                 <ScrollView
                     horizontal
                     pagingEnabled
+                    keyboardDismissMode="on-drag"
                     decelerationRate="fast"
                     snapToInterval={carouselWidth}
                     snapToAlignment="start"
@@ -293,20 +358,6 @@ export default function OnBoardingScreen() {
                     ))}
                 </ScrollView>
 
-                {/* The name and badge are outside the cat's carousel area. */}
-                <Text style={styles.catName} numberOfLines={1}>
-					{animalName.trim() || selectedCat?.name}
-				</Text>
-
-                <View style={styles.selectedBadgeContainer}>
-                    {selectedSpeciesId !== '' && (
-                        <View style={styles.selectedBadge}>
-                            <Text style={styles.selectedBadgeText}>
-                                ✓ Selected
-                            </Text>
-                        </View>
-                    )}
-                </View>
                 <View style={styles.pagination}>
                     {cats.map((cat) => (
                         <View
@@ -326,50 +377,68 @@ export default function OnBoardingScreen() {
     function renderCatSelection() {
         return (
             <View style={styles.stepContainer}>
-                <Text style={styles.title}>
-                    Choose your companion
-                </Text>
+                <View style={styles.stepContent}>
+                    <Text style={styles.title}>
+                        Choose your companion
+                    </Text>
 
-                <Text style={styles.subtitle}>
-                    Swipe between the different cats to select yours
-                </Text>
+                    <Text style={styles.subtitle}>
+                        Swipe between the different cats to select yours
+                    </Text>
 
-                {catCarousel()}
+                    {catCarousel()}
 
-                <View style={styles.nameContainer}>
-                    {isEditingName ? (
-                        <TextInput
-                            value={animalName}
-                            onChangeText={setAnimalName}
-                            placeholder="Enter name..."
-                            placeholderTextColor={COLORS.muted}
-                            maxLength={20}
-                            autoCapitalize="words"
-                            autoFocus
-                            returnKeyType="done"
-                            onSubmitEditing={() => setIsEditingName(false)}
-                            onBlur={() => setIsEditingName(false)}
-                            style={styles.input}
-                        />
-                    ) : (
-                        <Pressable
-                            onPress={() => setIsEditingName(true)}
-                            style={styles.nameEditButton}
-                        >
-                            <Text style={styles.nameEditButtonText}>
-                                {animalName.trim()
-                                    ? `${animalName.trim()} · Edit name`
-                                    : 'Enter name...'}
-                            </Text>
-                        </Pressable>
-                    )}
+                    <View style={styles.nameContainer}>
+                        {isEditingName ? (
+                            <TextInput
+                                value={animalName}
+                                onChangeText={setAnimalName}
+                                placeholder="e.g. Mittens"
+                                placeholderTextColor={COLORS.muted}
+                                maxLength={20}
+                                autoCapitalize="words"
+                                autoFocus
+                                returnKeyType="done"
+                                onSubmitEditing={() => setIsEditingName(false)}
+                                onBlur={() => setIsEditingName(false)}
+                                style={styles.input}
+                            />
+                        ) : (
+                            <Pressable
+                                onPress={() => setIsEditingName(true)}
+                                style={styles.nameEditButton}
+                            >
+                                <Text style={styles.nameEditButtonText}>
+                                    {animalName.trim()
+                                        ? `${animalName.trim()} · Edit name`
+                                        : 'Enter a name...'}
+                                </Text>
+                            </Pressable>
+                        )}
+                    </View>
+
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Age</Text>
+                            <Text style={styles.statValue}>0d</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Level</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Xp</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Km</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+                    </View>
                 </View>
-
-                {button(
-                    'Continue',
-                    continueFromCatSelection,
-                    loadingCats || cats.length === 0,
-                )}
             </View>
         );
     }
@@ -377,187 +446,242 @@ export default function OnBoardingScreen() {
     function renderWelcomeBonus() {
         return (
             <View style={styles.stepContainer}>
-                <Text style={styles.emoji}>🎉</Text>
+                <View style={styles.stepContent}>
+                    <Text style={styles.title}>
+                        The new beginning of
+                    </Text>
 
-                <Text style={styles.title}>
-                    Welcome to puma!
-                </Text>
+                    <Text style={styles.title}>
+                        {animalName.trim()}
+                    </Text>
 
-                <Text style={styles.subtitle}>
-                    Your adventure with {animalName.trim()} is about to begin.
-                </Text>
+                    {selectedCat && (
+                        <View style={styles.extra}>
+                            <Image
+                                source={CAT_SPRITES[selectedCat.asset_key]}
+                                style={styles.bonusCatImage}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    )}
 
-                {selectedCat && (
-                    <View style={styles.bonusCatCard}>
-                        <Image
-                            source={CAT_SPRITES[selectedCat.asset_key]}
-                            style={styles.bonusCatImage}
-                            resizeMode="contain"
-                        />
-                        <Text style={styles.catName}>
-                            {animalName.trim()}
-                        </Text>
-                    </View>
-                )}
+                    <View style={styles.bonusRow}>
+                        <View style={styles.bonusItem}>
+                            <View style={styles.bonusContent}>
+                                <Text style={styles.bonusEmoji}>🍬</Text>
+                                <Text style={styles.bonusAmount}>
+                                    x5 Candy
+                                </Text>
+                            </View>
 
-                <View style={styles.bonusRow}>
-                    <View style={styles.bonusItem}>
-                        <Text style={styles.bonusEmoji}>🍬</Text>
-                        <Text style={styles.bonusAmount}>+5</Text>
-                        <Text style={styles.mutedText}>Candies</Text>
-                    </View>
+                            <Text style={styles.mutedText}>
+                                Candy can be used to buy new pets, clothing,
+                                and change cosmetics.
+                            </Text>
+                        </View>
 
-                    <View style={styles.bonusItem}>
-                        <Text style={styles.bonusEmoji}>🪙</Text>
-                        <Text style={styles.bonusAmount}>+100</Text>
-                        <Text style={styles.mutedText}>Coins</Text>
+                        <View style={styles.bonusItem}>
+                            <View style={styles.bonusContent}>
+                                <Text style={styles.bonusEmoji}>🪙</Text>
+                                <Text style={styles.bonusAmount}>
+                                    x100 Coins
+                                </Text>
+                            </View>
+
+                            <Text style={styles.mutedText}>
+                                Coins can be used to buy new furniture,
+                                wallpaper and decorations to customize
+                                your room.
+                            </Text>
+                        </View>
                     </View>
                 </View>
-
-                {button('Let’s go!', () => setStep(2))}
-                {button('Back', goBack, false, true)}
             </View>
         );
     }
 
     function renderTutorial() {
-        const tutorialIndex = step - 2;
-        const tutorial = TUTORIALS[tutorialIndex];
+        const tutorialIndex = step - FIRST_TUTORIAL_STEP;
+        const tutorial = TUTORIAL_SCREENSHOTS[tutorialIndex];
 
         return (
             <View style={styles.stepContainer}>
-                <Text style={styles.progressText}>
-                    TUTORIAL {tutorialIndex + 1} OF {TUTORIALS.length}
-                </Text>
+                <View style={styles.stepContent}>
+                    <Text style={styles.tutorialTitle}>
+                        {tutorial.title}
+                    </Text>
+                    <Text style={styles.progressText}>
+                        {`${tutorialIndex + 1} OF ${TUTORIAL_SCREENSHOTS.length}`}
+                    </Text>
 
-                <Text style={styles.emoji}>{tutorial.icon}</Text>
+                    <ScrollView
+                        ref={tutorialScrollRef}
+                        horizontal
+                        pagingEnabled
+                        decelerationRate="fast"
+                        snapToInterval={carouselWidth}
+                        snapToAlignment="start"
+                        showsHorizontalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        style={{ width: carouselWidth }}
+                        contentContainerStyle={styles.carouselContent}
+                        onMomentumScrollEnd={(event) => {
+                            const index = Math.round(
+                                event.nativeEvent.contentOffset.x /
+                                    carouselWidth,
+                            );
 
-                <Text style={styles.title}>{tutorial.title}</Text>
+                            if (
+                                index >= 0 &&
+                                index < TUTORIAL_SCREENSHOTS.length &&
+                                index + FIRST_TUTORIAL_STEP !== step
+                            ) {
+                                setStep(index + FIRST_TUTORIAL_STEP);
+                                setMessage('');
+                            }
+                        }}
+                    >
+                        {TUTORIAL_SCREENSHOTS.map((slide) => (
+                            <View
+                                key={slide.id}
+                                style={[
+                                    styles.carouselPage,
+                                    { width: carouselWidth },
+                                ]}
+                            >
+                                <View style={styles.tutorialScreenshotCard}>
+                                    <Image
+                                        source={slide.image}
+                                        style={styles.tutorialScreenshotImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
 
-                <Text style={styles.tutorialDescription}>
-                    {tutorial.description}
-                </Text>
+                    <Text style={styles.tutorialDescription}>
+                        {tutorial.description}
+                    </Text>
 
-                <View style={styles.tutorialProgress}>
-                    {TUTORIALS.map((item, index) => (
-                        <View
-                            key={item.title}
-                            style={[
-                                styles.progressDot,
-                                tutorialIndex === index &&
-                                    styles.activeProgressDot,
-                            ]}
-                        />
-                    ))}
-                </View>
-
-                {button(
-                    tutorialIndex === TUTORIALS.length - 1
-                        ? 'Continue'
-                        : 'Next',
-                    () => setStep((currentStep) => currentStep + 1),
-                )}
-
-                {button(
-                    'Skip tutorial',
-                    () => setStep(4),
-                    false,
-                    true,
-                )}
-
-                {button('Back', goBack, false, true)}
-            </View>
-        );
-    }
-
-    function renderConfirmation() {
-        return (
-            <View style={styles.stepContainer}>
-                <Text style={styles.title}>
-                    Meet your new companion
-                </Text>
-
-                <Text style={styles.subtitle}>
-                    Make sure everything looks right before you begin.
-                </Text>
-
-                {selectedCat && (
-                    <View style={styles.confirmationCard}>
-                        <Image
-                            source={CAT_SPRITES[selectedCat.asset_key]}
-                            style={styles.confirmationImage}
-                            resizeMode="contain"
-                        />
-
-                        <Text style={styles.catName}>
-                            {animalName.trim()}
-                        </Text>
+                    <View style={styles.pagination}>
+                        {TUTORIAL_SCREENSHOTS.map((slide, index) => (
+                            <View
+                                key={slide.id}
+                                style={[
+                                    styles.paginationDot,
+                                    tutorialIndex === index &&
+                                        styles.activePaginationDot,
+                                ]}
+                            />
+                        ))}
                     </View>
-                )}
 
-                {button(
-                    'Change cat or name',
-                    () => {
-                        setIsEditingName(false);
-                        setStep(0);
-                    },
-                    busy,
-                    true,
-                )}
+					<View style={styles.tutorialTopRow}>
+                        <View style={styles.tutorialTopSpacer} />
 
-                {button(
-                    busy ? 'Setting things up...' : 'Start exploring',
-                    handleFinishOnboarding,
-                    busy,
-                )}
+                        <Pressable
+                            onPress={() => {
+                                setMessage('');
+                                setStep(LAST_TUTORIAL_STEP);
+                            }}
+                            style={styles.skipTutorialButton}
+                        >
+						<Text style={styles.skipTutorialText}>
+							Skip tutorial
+						</Text>
+                        </Pressable>
+                    </View>
 
-                {busy && (
-                    <ActivityIndicator
-                        style={styles.spinner}
-                        color={COLORS.accent}
-                    />
-                )}
-
-                {button('Back', goBack, busy, true)}
+                </View>
             </View>
         );
     }
 
     return (
-        <KeyboardAvoidingView
-            style={styles.screen}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={0}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
-            >
-                {step > 0 && (
-                    <View style={styles.header}>
-                        <Text style={styles.logo}>puma</Text>
-                        <Text style={styles.stepLabel}>
-                            {step === 1
-                                ? 'WELCOME'
-                                : step < 4
-                                  ? `STEP ${step - 1} OF 2`
-                                  : 'READY TO GO'}
-                        </Text>
-                    </View>
-                )}
+		<KeyboardAvoidingView
+			style={styles.screen}
+			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+			keyboardVerticalOffset={0}
+		>
+			<ScrollView
+				style={styles.contentScroll}
+				contentContainerStyle={styles.scrollContent}
+				keyboardShouldPersistTaps="handled"
+				keyboardDismissMode="on-drag"
+			>
+				{step === 0 && renderCatSelection()}
+				{step === 1 && renderWelcomeBonus()}
+				{step >= FIRST_TUTORIAL_STEP &&
+					step <= LAST_TUTORIAL_STEP &&
+					renderTutorial()}
 
-                {step === 0 && renderCatSelection()}
-                {step === 1 && renderWelcomeBonus()}
-                {(step === 2 || step === 3) && renderTutorial()}
-                {step === 4 && renderConfirmation()}
+				{message !== '' && (
+					<Text style={styles.errorText}>{message}</Text>
+				)}
+			</ScrollView>
 
-                {message !== '' && (
-                    <Text style={styles.errorText}>{message}</Text>
-                )}
-            </ScrollView>
-        </KeyboardAvoidingView>
-    );
+			{!isEditingName && (
+				<View style={styles.fixedFooter}>
+					{step === 0 && (
+						<>
+							{button(
+								'Continue',
+								continueFromCatSelection,
+								loadingCats ||
+									cats.length === 0 ||
+									switchingAccount,
+							)}
+
+							{button(
+								switchingAccount
+									? 'Signing out...'
+									: '← Switch account',
+								handleSwitchAccount,
+								switchingAccount,
+								true,
+							)}
+						</>
+					)}
+
+					{step === 1 && (
+						<>
+							{button('Continue', () => setStep(2))}
+							{button('Go back', goBack, false, true)}
+						</>
+					)}
+
+					{step >= FIRST_TUTORIAL_STEP &&
+						step <= LAST_TUTORIAL_STEP && (
+							<>
+								{button(
+									step === LAST_TUTORIAL_STEP
+										? 'Start adventure!'
+										: 'Next',
+									() => {
+										setMessage('');
+
+										if (step === LAST_TUTORIAL_STEP) {
+											handleFinishOnboarding();
+										} else {
+											setStep((currentStep) =>
+												Math.min(
+													currentStep + 1,
+													LAST_TUTORIAL_STEP,
+												),
+											);
+										}
+									},
+									step === LAST_TUTORIAL_STEP && busy,
+								)}
+
+								{button('Back', goBack, busy, true)}
+							</>
+						)}
+				</View>
+			)}
+		</KeyboardAvoidingView>
+	);
 }
 
 const styles = StyleSheet.create({
@@ -565,37 +689,36 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    contentScroll: {
+        flex: 1,
+    },
     scrollContent: {
         flexGrow: 1,
         alignItems: 'center',
-        justifyContent: 'center',
         paddingHorizontal: 20,
-        paddingTop: 32,
-        paddingBottom: 32,
-    },
-    header: {
-        width: '100%',
-        alignItems: 'center',
-        marginBottom: 28,
-    },
-    logo: {
-        fontSize: 30,
-        fontWeight: '800',
-        color: COLORS.accent,
-        letterSpacing: 1,
-    },
-    stepLabel: {
-        marginTop: 6,
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 2,
-        color: COLORS.muted,
+        paddingTop: 100,
+        paddingBottom: 24,
     },
     stepContainer: {
         width: '100%',
+        flexGrow: 1,
         alignItems: 'center',
     },
+    stepContent: {
+        width: '100%',
+        alignItems: 'center',
+    },
+    fixedFooter: {
+        width: '100%',
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        paddingBottom: 24,
+        alignItems: 'center',
+        backgroundColor: COLORS.background,
+    },
     title: {
+        width: '100%',
+        paddingHorizontal: 20,
         fontSize: 26,
         fontWeight: '700',
         color: COLORS.text,
@@ -619,6 +742,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.muted,
         textAlign: 'center',
+        lineHeight: 20,
     },
     carouselContent: {
         alignItems: 'center',
@@ -635,7 +759,6 @@ const styles = StyleSheet.create({
         borderWidth: 0,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 8,
     },
     catImage: {
         width: 270,
@@ -649,11 +772,9 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: COLORS.text,
         textAlign: 'center',
-        marginTop: 4,
     },
     selectedBadgeContainer: {
         height: 38,
-        marginTop: 4,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -668,11 +789,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: COLORS.accent,
     },
-    carouselHint: {
-        color: COLORS.muted,
-        fontSize: 13,
-        marginTop: 14,
-    },
     pagination: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -681,13 +797,13 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     paginationDot: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
+        width: 14,
+        height: 14,
+        borderRadius: 8,
         backgroundColor: COLORS.border,
     },
     activePaginationDot: {
-        width: 20,
+        width:	14,
         backgroundColor: COLORS.accent,
     },
     nameContainer: {
@@ -697,21 +813,22 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     nameEditButton: {
+        width: '70%',
+        minHeight: 50,
         marginTop: 10,
-        minWidth: 170,
-        maxWidth: 280,
         backgroundColor: COLORS.card,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: 28,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
+        borderRadius: 34,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
         alignItems: 'center',
+        justifyContent: 'center',
+        borderColor: COLORS.accent,
+        borderWidth: 1,
     },
     nameEditButtonText: {
-        fontSize: 14,
-        color: COLORS.accent,
-        fontWeight: '600',
+        fontSize: 16,
+        color: COLORS.text,
+        fontWeight: '700',
         textAlign: 'center',
     },
     input: {
@@ -730,13 +847,14 @@ const styles = StyleSheet.create({
     },
     button: {
         width: '70%',
-        minHeight: 50,
+        height: 50,
         borderRadius: 34,
         backgroundColor: COLORS.accent,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 18,
-        marginTop: 10,
+        marginTop: 0,
+        marginBottom: 10,
         alignSelf: 'center',
     },
     buttonText: {
@@ -745,8 +863,8 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     secondaryButton: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
+        backgroundColor: COLORS.card,
+        borderWidth: 2,
         borderColor: COLORS.border,
     },
     secondaryButtonText: {
@@ -760,41 +878,38 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         textAlign: 'center',
     },
-    bonusCatCard: {
-        width: '100%',
-        backgroundColor: COLORS.card,
-        borderRadius: 20,
-        alignItems: 'center',
-        padding: 18,
-        marginBottom: 20,
-    },
     bonusCatImage: {
-        width: 140,
-        height: 140,
+        width: 200,
+        height: 200,
         marginBottom: 8,
     },
     bonusRow: {
-        flexDirection: 'row',
         width: '100%',
         gap: 12,
-        marginBottom: 24,
+        marginBottom: 14,
     },
     bonusItem: {
-        flex: 1,
-        backgroundColor: COLORS.card,
+        width: '100%',
         borderRadius: 18,
         padding: 20,
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    bonusContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'center',
+        gap: 12,
+        marginBottom: 12,
     },
     bonusEmoji: {
         fontSize: 28,
-        marginBottom: 8,
     },
     bonusAmount: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: '800',
         color: COLORS.text,
-        marginBottom: 4,
     },
     progressText: {
         color: COLORS.muted,
@@ -803,27 +918,55 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
         marginBottom: 32,
     },
+	tutorialTopRow: {
+		width: '100%',
+		minHeight: 36,
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingVertical: 20,
+	},
+	tutorialTopSpacer: {
+		flex: 1,
+	},
+	skipTutorialButton: {
+		paddingHorizontal: 14,
+		paddingVertical: 7,
+		borderRadius: 20,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		backgroundColor: 'transparent',
+	},
+    skipTutorialText: {
+        color: COLORS.muted,
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    tutorialScreenshotCard: {
+        width: '100%',
+        height: 320,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tutorialScreenshotImage: {
+        width: 270,
+        height: 290,
+    },
+   	tutorialTitle: {
+		fontSize: 28,
+		fontWeight: 'bold',
+		textAlign: 'center',
+		alignSelf: 'stretch',
+		marginTop: 0,
+		marginBottom: 8,
+	},
     tutorialDescription: {
         fontSize: 16,
         lineHeight: 25,
         textAlign: 'center',
         color: COLORS.muted,
         marginBottom: 28,
-    },
-    tutorialProgress: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 20,
-    },
-    progressDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: COLORS.border,
-    },
-    activeProgressDot: {
-        width: 24,
-        backgroundColor: COLORS.accent,
     },
     confirmationCard: {
         width: '100%',
@@ -848,5 +991,40 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
         marginTop: 16,
+    },
+    extra: {
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        padding: 0,
+        margin: 0,
+    },
+    statsContainer: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: 'transparent',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 8,
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    statLabel: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: COLORS.text,
+    },
+    statValue: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.text,
     },
 });
