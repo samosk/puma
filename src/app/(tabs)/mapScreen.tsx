@@ -509,16 +509,12 @@ export default function MapScreen() {
     }
 
     /*
-     * Location tracking.
-     *
-     * This runs continuously.
-     *
-     * It ALWAYS updates userLocation.
+     * Location tracking continuously.
      *
      * It only calculates candy distance
      * if a candy is currently selected.
      *
-     * It NEVER automatically collects a candy.
+     * It never collects a candy automatically.
      */
     useEffect(() => {
         let mounted = true;
