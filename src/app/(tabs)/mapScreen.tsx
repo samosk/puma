@@ -11,6 +11,8 @@ import CenterMapButton from '../../components/CenterMapButton';
 import { calculateDistance } from '../../functions/calculateDistance';
 import { collectCandy } from '../../functions/collectCandy';
 import { getUserProfile } from '../../functions/getUserProfile';
+import { recordCandyActivity } from '../../functions/recordCandyActivity';
+import { recordWalkingActivity } from '../../functions/recordWalkingActivity';
 
 import { supabase } from '../../lib/supabase';
 
@@ -302,145 +304,92 @@ export default function MapScreen() {
      * Nothing is removed locally.
      * Supabase must confirm the collection first.
      */
-    async function handleCollectCandy() {
-        const candy =
-            selectedCandyRef.current;
+	async function handleCollectCandy() {
+		const candy = selectedCandyRef.current;
 
-        if (!candy) {
-            console.log(
-                'No candy selected'
-            );
-            return;
-        }
+		if (!candy) {
+			console.log('No candy selected');
+			return;
+		}
 
-        if (
-            selectedCandyDistance === null
-        ) {
-            console.log(
-                'Candy distance is unknown'
-            );
-            return;
-        }
+		if (selectedCandyDistance === null) {
+			console.log('Candy distance is unknown');
+			return;
+		}
 
-        if (
-            selectedCandyDistance >
-            COLLECTION_RADIUS
-        ) {
-            console.log(
-                'Candy is too far away'
-            );
+		if (selectedCandyDistance > COLLECTION_RADIUS) {
+			console.log('Candy is too far away');
+			return;
+		}
 
-            return;
-        }
+		if (isCollectingCandy) {
+			return;
+		}
 
-        if (isCollectingCandy) {
-            return;
-        }
+		const currentUser = userRef.current;
 
-        /*
-         * We need the currently logged-in user's ID
-         * so we can save who collected the candy.
-         */
-        if (!userRef.current) {
-            console.log(
-                'No user available, cannot collect candy'
-            );
-            return;
-        }
+		if (!currentUser) {
+			console.log('No user available, cannot collect candy');
+			return;
+		}
 
-        console.log(
-            'User pressed COLLECT:',
-            candy.id
-        );
+		// Save the user ID before starting asynchronous operations.
+		const collectorId = currentUser.id;
 
-        console.log(
-            'Candy collected by user:',
-            userRef.current.id
-        );
+		console.log('User pressed COLLECT:', candy.id);
+		console.log('Candy collected by user:', collectorId);
 
-        setIsCollectingCandy(true);
+		setIsCollectingCandy(true);
 
-        try {
-            const collected =
-                await collectCandy(
-                    candy.id,
-                    userRef.current.id
-                );
+		try {
+			const collected = await collectCandy(
+				candy.id,
+				collectorId
+			);
 
-            if (
-                collected &&
-                collected.collected_at
-            ) {
-                console.log(
-                    'Database confirmed candy collection'
-                );
+			if (collected && collected.collected_at) {
+				console.log('Database confirmed candy collection');
+				console.log('Candy ID:', collected.id);
+				console.log('Collected by user:', collectorId);
+				console.log('Collected at:', collected.collected_at);
 
-                console.log(
-                    '   Candy ID:',
-                    collected.id
-                );
+				// Record this candy in the user's daily activity.
+				const activityRecorded = await recordCandyActivity(
+					collectorId,
+					Date.now()
+				);
 
-                console.log(
-                    '   Collected by user:',
-                    userRef.current.id
-                );
+				if (!activityRecorded) {
+					console.error(
+						'Candy was collected, but daily activity could not be recorded.'
+					);
+				}
 
-                console.log(
-                    '   collected_at:',
-                    collected.collected_at
-                );
+				// Refresh active candies from Supabase.
+				await fetchCandies();
 
-                /*
-                 * Database is the source of truth.
-                 *
-                 * Refresh active candies from Supabase.
-                 */
-                await fetchCandies();
+				// Refresh the user's profile and candy count.
+				const updatedProfile = await getUserProfile(collectorId);
 
-                /*
-                 * Refresh user's candy count
-                 * if authentication/profile exists.
-                 */
-                if (userRef.current) {
-                    const updatedProfile =
-                        await getUserProfile(
-                            userRef.current.id
-                        );
+				if (updatedProfile) {
+					setUser(updatedProfile);
+					userRef.current = updatedProfile;
+				}
 
-                    if (updatedProfile) {
-                        setUser(updatedProfile);
+				// Close the card only after collection is confirmed.
+				selectedCandyRef.current = null;
+				setSelectedCandy(null);
+				setSelectedCandyDistance(null);
+			} else {
+				console.log('Candy collection was NOT confirmed');
+			}
+		} catch (error) {
+			console.error('Error collecting candy:', error);
+		} finally {
+			setIsCollectingCandy(false);
+		}
+	}
 
-                        userRef.current =
-                            updatedProfile;
-                    }
-                }
-
-                /*
-                 * Only close the card after
-                 * the database confirmed collection.
-                 */
-                selectedCandyRef.current =
-                    null;
-
-                setSelectedCandy(null);
-
-                setSelectedCandyDistance(
-                    null
-                );
-            } else {
-                console.log(
-                    'Candy collection was NOT confirmed'
-                );
-            }
-        } catch (error) {
-            console.error(
-                'Error collecting candy:',
-                error
-            );
-        } finally {
-            setIsCollectingCandy(false);
-        }
-    }
 
     /*
      * Close candy card.
@@ -686,6 +635,24 @@ export default function MapScreen() {
 									reportedSpeedKmh >= MAX_WALKING_SPEED_KMH)
 							) {
 								console.log('Ignoring fast movement segment');
+								return;
+							}
+
+							const currentUser = userRef.current;
+
+							if (!currentUser) {
+								console.log('No user available; skipping activity update.');
+								return;
+							}
+
+							const recorded = await recordWalkingActivity(
+								currentUser.id,
+								distance,
+								location.timestamp,
+							);
+
+							if (!recorded) {
+								console.log('Could not record walking activity.');
 								return;
 							}
 
