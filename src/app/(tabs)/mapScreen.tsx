@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Linking, Platform, StyleSheet, View } from 'react-native';
 import MapView from 'react-native-maps';
 
@@ -33,6 +33,23 @@ export default function MapScreen() {
     const [selectedCandyAddress, setSelectedCandyAddress] = useState('Finding address...');
     const [isCollectingCandy, setIsCollectingCandy] = useState(false);
     const [isFollowingUser, setIsFollowingUser] = useState(true);
+
+	const previousWalkingLocation = useRef<{
+		latitude: number;
+		longitude: number;
+		timestamp: number;
+	} | null>(null);
+
+
+	const walkingDistance = useRef(0);
+	const isRewardingCoins = useRef(false);
+
+	const WALKING_REWARD_DISTANCE = 100;
+	const WALKING_REWARD_COINS = 1;
+	const MAX_WALKING_SPEED_KMH = 20;
+	const MAX_GPS_ACCURACY_METRES = 15;
+	const MIN_MOVEMENT_DISTANCE = 3;
+
 
     /*
      * Load the currently logged-in user.
@@ -508,130 +525,337 @@ export default function MapScreen() {
         );
     }
 
-    /*
-     * Location tracking continuously.
-     *
-     * It only calculates candy distance
-     * if a candy is currently selected.
-     *
-     * It never collects a candy automatically.
-     */
-    useEffect(() => {
-        let mounted = true;
+	/*
+	 * Reward the user with coins for walking.
+	 */
+	async function rewardWalkingCoin() {
+		const currentUser = userRef.current;
 
-        async function startLocationTracking() {
-            const {
-                status,
-            } =
-                await Location.requestForegroundPermissionsAsync();
+		
 
-            if (
-                status !==
-                Location.PermissionStatus.GRANTED
-            ) {
-                console.log(
-                    'Location permission denied'
-                );
+		if (!currentUser || isRewardingCoins.current) {
+			return false;
+		}
 
-                return;
-            }
+		isRewardingCoins.current = true;
 
-            console.log(
-                'Location permission granted'
-            );
+		try {
+			const { data, error } = await supabase
+				.from('profiles')
+				.select('coins')
+				.eq('id', currentUser.id)
+				.single();
 
-            locationSubscription.current =
-                await Location.watchPositionAsync(
-                    {
-                        accuracy:
-                            Location.Accuracy.High,
+			if (error || !data) {
+				console.error('Could not fetch coin balance:', error);
+				return false;
+			}
 
-                        timeInterval: 5000,
+			const { error: updateError } = await supabase
+				.from('profiles')
+				.update({
+					coins: (data.coins ?? 0) + WALKING_REWARD_COINS,
+				})
+				.eq('id', currentUser.id);
 
-                        distanceInterval: 1,
-                    },
-                    (location) => {
-                        if (!mounted) {
-                            return;
-                        }
+			if (updateError) {
+				console.error('Failed to award walking coin:', updateError);
+				return false;
+			}
 
-                        console.log(
-                            'New location of user:',
-                            location.coords.latitude,
-                            location.coords.longitude
-                        );
+			const updatedProfile = await getUserProfile(currentUser.id);
 
-                        setUserLocation(
-                            location.coords
-                        );
+			if (updatedProfile) {
+				userRef.current = updatedProfile;
+				setUser(updatedProfile);
+			}
 
-                        /*
-                         * Only calculate candy distance
-                         * when a candy is selected.
-                         */
-                        const candy =
-                            selectedCandyRef.current;
+			console.log('Walking reward granted: +1 coin');
 
-                        if (!candy) {
-                            return;
-                        }
+			return true;
+		} catch (error) {
+			console.error('Walking reward failed:', error);
+			return false;
+		} finally {
+			isRewardingCoins.current = false;
+		}
+	}
 
-                        const distance =
-                            calculateDistance(
-                                {
-                                    latitude:
-                                        location.coords
-                                            .latitude,
-                                    longitude:
-                                        location.coords
-                                            .longitude,
-                                },
-                                {
-                                    latitude:
-                                        candy.latitude,
-                                    longitude:
-                                        candy.longitude,
-                                }
-                            );
+	useFocusEffect(
+		useCallback(() => {
+			let active = true;
 
-                        console.log(
-                            `Distance to selected candy: ${distance.toFixed(
-                                2
-                            )} m`
-                        );
+			async function startLocationTracking() {
+				const { status } =
+					await Location.requestForegroundPermissionsAsync();
 
-                        setSelectedCandyDistance(
-                            distance
-                        );
-                    }
-                );
-        }
+				if (!active || status !== Location.PermissionStatus.GRANTED) {
+					console.log('Location permission unavailable');
+					return;
+				}
 
-        startLocationTracking();
+				locationSubscription.current =
+					await Location.watchPositionAsync(
+						{
+							accuracy: Location.Accuracy.High,
+							timeInterval: 5000,
+							distanceInterval: 1,
+						},
+						async (location) => {
+							if (!active) {
+								return;
+							}
 
-        return () => {
-            mounted = false;
+							setUserLocation(location.coords);
 
-            if (
-                locationSubscription.current
-            ) {
-                locationSubscription.current.remove();
+							const {
+								latitude,
+								longitude,
+								accuracy,
+								speed,
+							} = location.coords;
 
-                locationSubscription.current =
-                    null;
-            }
-        };
-    }, []);
+							// Skip inaccurate readings and reset the reference.
+							if (
+								accuracy == null ||
+								accuracy > MAX_GPS_ACCURACY_METRES
+							) {
+								previousWalkingLocation.current = null;
+								return;
+							}
 
-    /*
-     * Initial data loading.
-     */
-    useFocusEffect(
-        useCallback(() => {
-            loadUser();
-            fetchCandies();
-        }, [])
-    );
+							const previous = previousWalkingLocation.current;
+
+							// The first valid reading establishes the starting point.
+							if (!previous) {
+								previousWalkingLocation.current = {
+									latitude,
+									longitude,
+									timestamp: location.timestamp,
+								};
+								return;
+							}
+
+							const elapsedSeconds =
+								(location.timestamp - previous.timestamp) / 1000;
+
+							if (elapsedSeconds <= 0) {
+								return;
+							}
+
+							const distance = calculateDistance(
+								{
+									latitude: previous.latitude,
+									longitude: previous.longitude,
+								},
+								{
+									latitude,
+									longitude,
+								},
+							);
+
+							if (distance < MIN_MOVEMENT_DISTANCE) {
+								previousWalkingLocation.current = {
+									latitude,
+									longitude,
+									timestamp: location.timestamp,
+								};
+
+								return;
+							}
+
+							const calculatedSpeedKmh =
+								(distance / elapsedSeconds) * 3.6;
+
+							const reportedSpeedKmh =
+								speed != null && speed >= 0
+									? speed * 3.6
+									: null;
+
+							// Always move the reference forward, but never
+							// award distance for a suspicious segment.
+							previousWalkingLocation.current = {
+								latitude,
+								longitude,
+								timestamp: location.timestamp,
+							};
+
+							if (
+								calculatedSpeedKmh >= MAX_WALKING_SPEED_KMH ||
+								(reportedSpeedKmh != null &&
+									reportedSpeedKmh >= MAX_WALKING_SPEED_KMH)
+							) {
+								console.log('Ignoring fast movement segment');
+								return;
+							}
+
+							walkingDistance.current += distance;
+
+							console.log(
+								`Walking distance: ${walkingDistance.current.toFixed(1)} m`,
+							);
+
+							while (
+								walkingDistance.current >= WALKING_REWARD_DISTANCE
+							) {
+								const awarded = await rewardWalkingCoin();
+
+								if (!awarded) {
+									// Keep the earned distance for a later retry.
+									return;
+								}
+
+								walkingDistance.current -= WALKING_REWARD_DISTANCE;
+							}
+						},
+					);
+			}
+
+			// Reset progress whenever this screen becomes active.
+			walkingDistance.current = 0;
+			previousWalkingLocation.current = null;
+
+			loadUser();
+			fetchCandies();
+			startLocationTracking();
+
+			return () => {
+				active = false;
+
+				locationSubscription.current?.remove();
+				locationSubscription.current = null;
+
+				// Unfinished distance is discarded when leaving the map.
+				walkingDistance.current = 0;
+				previousWalkingLocation.current = null;
+			};
+		}, []),
+	);
+
+    // /*
+    //  * Location tracking continuously.
+    //  *
+    //  * It only calculates candy distance
+    //  * if a candy is currently selected.
+    //  *
+    //  * It never collects a candy automatically.
+    //  */
+    // useEffect(() => {
+    //     let mounted = true;
+
+    //     async function startLocationTracking() {
+    //         const {
+    //             status,
+    //         } =
+    //             await Location.requestForegroundPermissionsAsync();
+
+    //         if (
+    //             status !==
+    //             Location.PermissionStatus.GRANTED
+    //         ) {
+    //             console.log(
+    //                 'Location permission denied'
+    //             );
+
+    //             return;
+    //         }
+
+    //         console.log(
+    //             'Location permission granted'
+    //         );
+
+    //         locationSubscription.current =
+    //             await Location.watchPositionAsync(
+    //                 {
+    //                     accuracy:
+    //                         Location.Accuracy.High,
+
+    //                     timeInterval: 5000,
+
+    //                     distanceInterval: 1,
+    //                 },
+    //                 (location) => {
+    //                     if (!mounted) {
+    //                         return;
+    //                     }
+
+    //                     console.log(
+    //                         'New location of user:',
+    //                         location.coords.latitude,
+    //                         location.coords.longitude
+    //                     );
+
+    //                     setUserLocation(
+    //                         location.coords
+    //                     );
+
+    //                     /*
+    //                      * Only calculate candy distance
+    //                      * when a candy is selected.
+    //                      */
+    //                     const candy =
+    //                         selectedCandyRef.current;
+
+    //                     if (!candy) {
+    //                         return;
+    //                     }
+
+    //                     const distance =
+    //                         calculateDistance(
+    //                             {
+    //                                 latitude:
+    //                                     location.coords
+    //                                         .latitude,
+    //                                 longitude:
+    //                                     location.coords
+    //                                         .longitude,
+    //                             },
+    //                             {
+    //                                 latitude:
+    //                                     candy.latitude,
+    //                                 longitude:
+    //                                     candy.longitude,
+    //                             }
+    //                         );
+
+    //                     console.log(
+    //                         `Distance to selected candy: ${distance.toFixed(
+    //                             2
+    //                         )} m`
+    //                     );
+
+    //                     setSelectedCandyDistance(
+    //                         distance
+    //                     );
+    //                 }
+    //             );
+    //     }
+
+    //     startLocationTracking();
+
+    //     return () => {
+    //         mounted = false;
+
+    //         if (
+    //             locationSubscription.current
+    //         ) {
+    //             locationSubscription.current.remove();
+
+    //             locationSubscription.current =
+    //                 null;
+    //         }
+    //     };
+    // }, []);
+
+    // /*
+    //  * Initial data loading.
+    //  */
+    // useFocusEffect(
+    //     useCallback(() => {
+    //         loadUser();
+    //         fetchCandies();
+    //     }, [])
+    // );
 
     return (
         <View style={styles.container}>
