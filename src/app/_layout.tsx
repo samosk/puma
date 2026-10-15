@@ -1,10 +1,10 @@
 
 import {
-	DarkTheme,
-	DefaultTheme,
-	Stack,
-	ThemeProvider,
-	useRouter,
+    DarkTheme,
+    DefaultTheme,
+    Stack,
+    ThemeProvider,
+    useRouter,
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
@@ -20,14 +20,14 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
     const colorScheme = useColorScheme();
 
-    return (
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <AuthProvider>
-                <AnimatedSplashOverlay />
-                <AuthGate />
-            </AuthProvider>
-        </ThemeProvider>
-    );
+  return (
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <AuthProvider>
+        <AnimatedSplashOverlay />
+        <AuthGate />
+      </AuthProvider>
+    </ThemeProvider>
+  );
 }
 
 // Decides what to show: nothing while checking a saved login,
@@ -87,7 +87,7 @@ function AuthGate() {
             if (data.onboarding_completed) {
                 router.replace('/(tabs)');
             } else {
-                router.replace('/onBoardingScreen');
+                router.replace('../onBoardingScreen');
             }
         }
 

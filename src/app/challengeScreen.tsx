@@ -1,14 +1,11 @@
+import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ---------------------------------------------------------------
-// WHICH TABLE TO SHOW
-// Any table with a read policy works, e.g.:
-// 'animals', 'species', 'profiles', 'cosmetics', 'challenges'
-// ---------------------------------------------------------------
-const TABLE_NAME = 'animals';
+
 
 // ---------------------------------------------------------------
 // COLORS
@@ -24,125 +21,250 @@ const COLORS = {
   error: '#F97066',
 };
 
-export default function HomeScreen() {
-  // rows    = the data from the table (starts empty)
-  // loading = true while waiting for Supabase
-  // error   = error message if the request failed, otherwise null
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type Metric = 'steps' | 'candies';
 
-  // Fetches the data from Supabase.
-  // useCallback just keeps this function stable so useEffect below
-  // doesn't re-run it on every render.
-  const loadRows = useCallback(async () => {
-	setLoading(true);
+type Challenge = {
+  id: string;
+  title: string;
+  period: 'daily' | 'weekly';
+  metric: Metric;
+  target: number;
+  xp_reward: number;
+  candy_reward: number;
+  coin_reward: number;
+};
 
-	// ---------------------------------------------------------------
-	// THE QUERY — this is the part you'll change most often.
-	// Add or swap lines to change what data comes back:
-	//
-	//   .select('name, xp')                  only these columns
-	//   .select('*, species(name)')          also include the related species' name
-	//   .eq('owner_id', 'some-uuid')         only rows where owner_id matches
-	//   .gt('xp', 100)                       only rows where xp is greater than 100
-	//   .order('xp', { ascending: false })   sort by xp, highest first
-	//   .limit(10)                           at most 10 rows
-	// ---------------------------------------------------------------
-	const { data, error } = await supabase
-	  .from(TABLE_NAME)
-	  .select('*');
+type FriendChallenge = {
+  id: string;
+  metric: Metric;
+  endTime: string;
+  target: number;
+  isSent: boolean;
+  progress: number;
+  friendsName: string;
+};
 
-	setRows(data ?? []);
-	setError(error ? error.message : null);
-	setLoading(false);
-  }, []);
-
-  // Run loadRows once when the screen first opens
-  useEffect(() => {
-	loadRows();
-  }, [loadRows]);
-
-  // Spinner on the very first load (before any rows have arrived)
-  if (loading && rows.length === 0) {
-	return (
-	  <View style={[styles.center, { backgroundColor: COLORS.background }]}>
-		<ActivityIndicator color={COLORS.text} />
-	  </View>
-	);
+// Används för att slumpa daily och weekly challenges
+// Alla användare får samma daily och weekly (vet inte om vi vill ha det så)
+function hashString(text: string): number {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+	hash = (hash * 31 + text.charCodeAt(i)) | 0;
   }
+  return Math.abs(hash);
+}
 
-  return (
-	<SafeAreaView style={styles.screen} edges={['top']}>
-	  {/* Page title: shows the table name and how many rows came back */}
-	  <Text style={styles.title}>{TABLE_NAME}</Text>
-	  <Text style={styles.muted}>{rows.length} rows</Text>
+// Väljer en challenge ur databasen 
+function pickFor(list: Challenge[], key: string): Challenge | null {
+  if (list.length === 0) return null;
+  return list[hashString(key) % list.length];
+}
 
-	  <FlatList
-		data={rows}
-		// Each row needs a unique key; most tables have an "id" column
-		keyExtractor={(item, index) => String(item.id ?? index)}
-		contentContainerStyle={styles.list}
-		// Pull down on the list to reload the data
-		refreshing={loading}
-		onRefresh={loadRows}
-		// Shown when there are no rows: either the error, or a hint
-		ListEmptyComponent={
-		  <Text style={error ? styles.error : styles.muted}>
-			{error ?? 'No rows. Check the table has data and a read policy.'}
-		  </Text>
+// Datum från mobilens lokala tid
+function date(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+// Nyckel för dagens daily challenge
+const today = () => date(new Date());
+
+// Räkna ut starten på veckan (måndag) för att kunna hämta weekly challenges
+function weekStart() : string {
+	const d = new Date();
+	const daySinceMonday = (d.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+	d.setDate(d.getDate() - daySinceMonday);
+	return `week-${date(d)}`;
+}
+
+const metricLabel = (m: Metric) => (m === 'steps' ? 'Steps' : 'Candies');
+
+
+export default function ChallengeScreen() {
+	const {session}	= useAuth();
+	const router = useRouter();
+	const userId = session?.user.id;
+	const [daily, setDaily] = useState<Challenge | null>(null);
+	const [weekly, setWeekly] = useState<Challenge | null>(null);
+	const [friendChallenges, setFriendChallenges] = useState<FriendChallenge[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	const loadData = useCallback(async () => {
+		if (!userId){
+			setLoading(false);
+			return;
 		}
-		// ---------------------------------------------------------------
-		// HOW EACH ROW LOOKS
-		// Right now it lists every column automatically. To design your
-		// own layout, replace the inside of the card with specific
-		// columns, for example:
-		//
-		//   <Text style={styles.value}>{String(item.name)}</Text>
-		//   <Text style={styles.muted}>XP: {String(item.xp)}</Text>
-		// ---------------------------------------------------------------
-		renderItem={({ item }) => (
-		  <View style={styles.card}>
-			{Object.entries(item).map(([column, value]) => (
-			  <View key={column} style={styles.field}>
-				<Text style={styles.key}>{column}</Text>
-				<Text style={styles.value}>{formatValue(value)}</Text>
-			  </View>
-			))}
-		  </View>
-		)}
-	  />
-	</SafeAreaView>
+
+	setLoading(true);
+	setError(null);
+
+	const [challengesResult, friendChallengesResult] = await Promise.all([
+		supabase.from('challenges').select('id, title, period, metric, target, xp_reward, candy_reward, coin_reward')
+		.eq('friend_challenge', false).order('id'),
+		supabase.from('friend_challenges').select('id, challenger_id, challenged_id, metric, target, ends_at,status')
+		.or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+		.neq('status', 'declined')
+		.gt('ends_at', new Date().toISOString())
+		.order('ends_at', { ascending: true }),
+	]);
+
+	const challengesError = challengesResult.error;
+	const friendChallengesError = friendChallengesResult.error;
+
+	if (challengesError) {
+		setError(challengesError.message);
+		setLoading(false);
+		return;
+	}
+
+	// Vill inte pilla i databasen så inga friendchallenges finns just nu i databasen,
+	// Loggar felet i konsollen så att det inte syns i appen
+	// Men på to do list är att fixa i databas :)
+	if(friendChallengesError) console.log('friend_challenges:', friendChallengesError.message);
+
+	// Daily and weekly challenges
+	const challenges = challengesResult.data ?? [];
+	setDaily(pickFor(challenges.filter(c => c.period === 'daily'), today()));
+	setWeekly(pickFor(challenges.filter(c => c.period === 'weekly'), weekStart()));
+
+	// Friend challenges
+	const rows = friendChallengesResult.data ?? [];
+	const otherIds = rows.map(row => row.challenger_id === userId ? row.challenged_id : row.challenger_id);
+
+	let names: Record<string, string> = {};
+	if (otherIds.length > 0) {
+		const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, username').in('id', otherIds);
+		for(const profile of profiles ?? []) {
+			names[profile.id] = profile.username;
+		}
+	}
+
+	setFriendChallenges(
+		rows.map((row) => {
+			const isSent = row.challenger_id === userId;
+			const otherId = isSent ? row.challenged_id : row.challenger_id;
+			return {
+				id: row.id,
+				metric: row.metric,
+				target: row.target,
+				status: row.status,
+				endTime: row.ends_at,
+				isSent,
+				friendsName: names[otherId] ?? 'Unknown',
+				progress: 0, // Placeholer tills vi har räknat ut progress
+			};
+		}),
+	);
+
+	setLoading(false);
+	}, [userId]);
+
+
+	useFocusEffect(
+		useCallback(() => {
+			loadData();
+		}, [loadData])
+	);
+
+	if (loading && !daily && !weekly && friendChallenges.length === 0) {
+		return (
+			<View style={styles.center}>
+				<ActivityIndicator size="large" color={COLORS.text} />
+			</View>
+		);
+	}
+
+	return (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.text} />}
+      >
+        <Text style={styles.title}>Challenges</Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+
+		{/*Daily*/}
+        <Text style={styles.sectionTitle}>Daily</Text>
+        {daily ? <ChallengeCard challenge={daily} /> : <Text style={styles.muted}>No daily challenge.</Text>}
+		
+		{/*Weekly*/}
+        <Text style={styles.sectionTitle}>Weekly</Text>
+        {weekly ? <ChallengeCard challenge={weekly} /> : <Text style={styles.muted}>No weekly challenge.</Text>}
+
+		{/*Friends*/}
+        <Text style={styles.sectionTitle}>Friends</Text>
+        {friendChallenges.length === 0 ? (
+          <Text style={styles.muted}>No friend challenges active!</Text>
+        ) : (
+          friendChallenges.map((fc) => <FriendChallengeCard key={fc.id} challenge={fc} />)
+        )}
+		<Pressable
+			style={({pressed}) => [styles.button, pressed && {opacity:0.7}]}
+			onPress={() => router.push('/friendScreen')}
+		>
+			<Text style={styles.buttonText}>Challenge a friend!</Text>
+		</Pressable>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// Turns any database value into text: empty values become a dash,
-// objects (like joined tables) become JSON
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+function ChallengeCard({ challenge }: { challenge: Challenge }) {
+	return (
+	<View style={styles.card}>
+		<Text style={styles.cardTitle}>{challenge.title}</Text>
+		<Text style={styles.muted}>
+			Goal: {challenge.target.toLocaleString()} {metricLabel(challenge.metric)} 
+			 Reward: {challenge.xp_reward} XP, {challenge.candy_reward} Candies, 
+			{challenge.coin_reward} Coins
+		</Text>
+	</View>
+	);
 }
 
-// ---------------------------------------------------------------
-// STYLES — sizes, spacing and layout for everything above
-// ---------------------------------------------------------------
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 16 },
-  muted: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
-  error: { fontSize: 14, color: COLORS.error },
-  list: { paddingVertical: 16, gap: 12 },
-  card: {
-	backgroundColor: COLORS.card,
-	borderColor: COLORS.border,
-	borderWidth: 1,
-	borderRadius: 12,
-	padding: 14,
-	gap: 8,
-  },
-  field: { flexDirection: 'row', gap: 12 },
-  key: { width: 110, fontSize: 13, color: COLORS.muted },
-  value: { flex: 1, fontSize: 15, color: COLORS.text },
+function FriendChallengeCard({ challenge }: { challenge: FriendChallenge }) {
+	return (
+	<View style={styles.card}>
+		<Text style={styles.cardTitle}>
+			{challenge.isSent ? `You challenged ${challenge.friendsName}` : `${challenge.friendsName} challenged you`}
+		</Text>
+		<Text style={styles.muted}>
+			Goal: {challenge.target.toLocaleString()} {metricLabel(challenge.metric)} 
+			 Ends: {new Date(challenge.endTime).toLocaleDateString()}
+			 Progress: {challenge.progress}%
+		</Text>
+	</View>
+	);
+}
+
+const styles = StyleSheet.create ({
+	screen: {flex: 1, backgroundColor: COLORS.background},
+	center: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+	content: {padding: 16, gap: 12},
+	title: {fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 8},
+	sectionTitle: {fontSize: 18, fontWeight: '600', color: COLORS.text, marginTop: 8},
+	card: {
+		backgroundColor: COLORS.card,
+		borderColor: COLORS.border,
+		borderWidth: 1, 
+		borderRadius: 12,
+		padding: 14, 
+		gap: 4,
+	},
+	cardTitle: {fontSize: 16, fontWeight: '600', color: COLORS.text},
+	muted: {fontSize: 14, color: COLORS.muted},
+	error: {fontSize: 14, color: COLORS.error},
+	button: {
+		alignSelf: 'flex-start',
+		backgroundColor: '#4195E8',
+		borderColor: '#AED5FB',
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+	},
+	buttonText: {fontSize: 15, fontWeight: '600', color: COLORS.text},
 });
