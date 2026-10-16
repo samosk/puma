@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRef } from 'react';
 import {
 	Animated,
+	Image,
 	PanResponder,
 	StyleSheet,
 	Text,
@@ -9,7 +10,9 @@ import {
 	View,
 } from 'react-native';
 
+import { Fonts } from '../constants/theme';
 import type { Candy } from '../types/types';
+const CANDY_SPRITE = require('../../assets/images/candy.png');
 
 type CandyCardProps = {
     candy: Candy;
@@ -114,27 +117,27 @@ export default function CandyInfoCard({
                 />
             </TouchableOpacity>
 
-            {/* Candy icon */}
-            <View style={styles.candyIconContainer}>
-                <MaterialCommunityIcons
-                    name="candy"
-                    size={28}
-                    color="magenta"
-                />
-            </View>
+			{/* Candy sprite */}
+			<View style={styles.candyIconContainer}>
+				<Image
+					source={CANDY_SPRITE}
+					style={styles.candyImage}
+					resizeMode="contain"
+				/>
+			</View>
 
             {/* Candy information */}
             <View style={styles.candyInfo}>
                 <Text style={styles.candyTitle}>
-                    Candy nearby
+                    Selected candy
                 </Text>
 
-                <Text
-                    style={styles.candyAddress}
-                    numberOfLines={1}
-                >
-                    {address}
-                </Text>
+              	<Text
+					style={styles.candyAddress}
+					numberOfLines={1}
+				>
+					{address.replace(/^[^,]+,\s*/, '')}
+				</Text>
 
                 {distance !== null ? (
                     <Text style={styles.candyDistance}>
@@ -160,26 +163,20 @@ export default function CandyInfoCard({
                     disabled={!canCollect}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons
-                        name="candy"
-                        size={19}
-                        color={canCollect ? 'white' : '#999'}
-                    />
-
-                    <Text
-                        style={[
-                            styles.collectText,
-                            !canCollect &&
-                                styles.collectTextDisabled,
-                        ]}
-                    >
-                        {isCollecting
-                            ? 'Collecting...'
-                            : distance !== null &&
-                                distance <= 5
-                            ? 'Collect'
-                            : 'Too far'}
-                    </Text>
+				<Text
+					style={[
+						styles.collectText,
+						!canCollect &&
+							styles.collectTextDisabled,
+					]}
+				>
+					{isCollecting
+						? 'Collecting...'
+						: distance !== null &&
+							distance <= 5
+						? 'Collect'
+						: 'Candy too far away'}
+				</Text>
                 </TouchableOpacity>
 
                 {/* Directions */}
@@ -252,18 +249,21 @@ const styles = StyleSheet.create({
     },
 
     candyTitle: {
+		fontFamily: Fonts.regular,
         fontSize: 17,
         fontWeight: '700',
         marginBottom: 2,
     },
 
     candyAddress: {
+		fontFamily: Fonts.regular,
         fontSize: 13,
         color: '#444',
         marginBottom: 2,
     },
 
     candyDistance: {
+		fontFamily: Fonts.regular,
         fontSize: 13,
         fontWeight: '600',
         color: '#555',
@@ -290,11 +290,17 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'magenta',
+        backgroundColor: '#F40ECA',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
     },
 
     collectButtonDisabled: {
@@ -302,12 +308,14 @@ const styles = StyleSheet.create({
     },
 
     collectText: {
+		fontFamily: Fonts.regular,
         color: 'white',
         fontSize: 14,
         fontWeight: '600',
     },
 
     collectTextDisabled: {
+		fontFamily: Fonts.regular,
         color: '#999',
     },
 
@@ -320,11 +328,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
     },
-
     directionsText: {
+		fontFamily: Fonts.regular,
         color: 'white',
         fontSize: 14,
         fontWeight: '600',
     },
+	candyImage: {
+		width: 36,
+		height: 36,
+	},
+	collectCandyImage: {
+		width: 22,
+		height: 22,
+	},
+	collectCandyImageDisabled: {
+		opacity: 0.45,
+	},
 });
