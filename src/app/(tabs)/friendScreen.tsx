@@ -2,11 +2,16 @@ import ChallengeFriendPopup, { ChallengeChoice } from '@/components/challengeFri
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+
+// Fixed reward value for friend challenges
+const FRIEND_CHALLENGE_CANDY_REWARD = 6;
+const FRIEND_CHALLENGE_COIN_REWARD = 100;
+//const FRIEND_CHALLENGE_XP_REWARD = ska det vara fast eller dynamiskt beroende på typ..?
 
 // ---------------------------------------------------------------
 // COLORS
@@ -90,6 +95,7 @@ function FriendCard({
 
 export default function FriendsScreen() {
 	const {session} = useAuth();
+	const router = useRouter();
 	const userId = session?.user.id;
   // rows    = the data from the table (starts empty)
   // loading = true while waiting for Supabase
@@ -104,11 +110,43 @@ export default function FriendsScreen() {
 	setChallengeTarget(friend);
   }
 
-  function sendChallenge(choice: ChallengeChoice) {
-	console.log('Challenge sent to', challengeTarget?.username, choice);
+// GAMLA
+//   function sendChallenge(choice: ChallengeChoice) {
+// 	console.log('Challenge sent to', challengeTarget?.username, choice);
+// 	setChallengeTarget(null);
+// 	router.navigate('/challengeScreen');
+//   }
+
+async function sendChallenge (choice: ChallengeChoice) {
+	if (!challengeTarget || !userId) return;
+
+	const isDay = choice.duration === '24h'
+	const metric = choice.type === 'steps' ? 'steps' : 'candies_collected'
+
+	const {error} = await supabase.from('challenges').insert({
+		title: `${choice.goal} ${choice.type === 'steps' ? 'steps' : 'candies'} vs ${challengeTarget.username}`,
+		period: isDay ? 'daily' : 'weekly',
+		metric,
+		target: choice.goal,
+		friend_challenge: true,
+		challenger_id: userId,
+		challenged_id: challengeTarget.id,
+		ends_at: new Date(Date.now() + (isDay ? 24 : 24 * 7) * 60 * 60 * 1000).toISOString(),
+		status: 'accepted',
+		candy_reward: FRIEND_CHALLENGE_CANDY_REWARD,
+		coin_reward: FRIEND_CHALLENGE_COIN_REWARD,
+	});
+
+	if(error) {
+		Alert.alert('Could not send challenge', error.message);
+		return;
+	}
+
+	Alert.alert('Challenge sent to ', `${challengeTarget.username}!`);
 	setChallengeTarget(null);
 	router.navigate('/challengeScreen');
-  }
+}
+
 
   // Fetches the data from Supabase.
   // useCallback just keeps this function stable so useEffect below

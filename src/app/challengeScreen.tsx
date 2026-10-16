@@ -42,6 +42,8 @@ type FriendChallenge = {
   isSent: boolean;
   progress: number;
   friendsName: string;
+  candyReward: number;
+  coinReward: number;
 };
 
 // Används för att slumpa daily och weekly challenges
@@ -78,6 +80,40 @@ function weekStart() : string {
 	return `week-${date(d)}`;
 }
 
+
+// ---------------------------------------------------------------
+// endOfDay(), endOfWeek() and timeLeft() are helpfunctions
+// for displaying time left for each challenge in challenge screen
+// ---------------------------------------------------------------
+function endOfDay() : Date {
+	const d = new Date();
+	d.setHours(24,0,0,0);
+	return d;
+}
+
+function endOfWeek() : Date {
+	const d = new Date();
+	const daysUntilMonday = 7 - ((d.getDay() + 6) % 7);
+	d.setDate(d.getDate() + daysUntilMonday);
+	d.setHours(0,0,0,0);
+	return d;
+}
+
+function timeLeft(end: Date): string {
+	const minutesLeft = end.getTime() - Date.now();
+	if (minutesLeft <= 0) return 'Ended';
+
+	const minutes = Math.floor(minutesLeft/60_000);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours/24);
+
+	if (days >= 1) return `${days} ${days === 1 ? 'day' : 'days'} left`;
+	if (hours >= 1) return `${hours} h left`;
+	return `${minutes} min left`;
+
+}
+
+
 const metricLabel = (m: Metric) => (m === 'steps' ? 'Steps' : 'Candies');
 
 
@@ -100,16 +136,19 @@ export default function ChallengeScreen() {
 	setLoading(true);
 	setError(null);
 
-	const [challengesResult, friendChallengesResult] = await Promise.all([
-		supabase.from('challenges').select('id, title, period, metric, target, xp_reward, candy_reward, coin_reward')
-		.eq('friend_challenge', false).order('id'),
-		supabase.from('friend_challenges').select('id, challenger_id, challenged_id, metric, target, ends_at,status')
-		.or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
-		.neq('status', 'declined')
-		.gt('ends_at', new Date().toISOString())
-		.order('ends_at', { ascending: true }),
-	]);
+const [challengesResult, friendChallengesResult] = await Promise.all([
+	// Daily/weekly challenges
+	supabase.from('challenges').select('id, title, period, metric, target, xp_reward, candy_reward, coin_reward')
+	.eq('friend_challenge', false).order('id'),
 
+	// Friend challenges
+	supabase.from('challenges').select('id, metric, target, ends_at, status, challenger_id, challenged_id, candy_reward, coin_reward')
+	.eq('friend_challenge', true)
+	.or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+	.neq('status', 'declined')
+	.gt('ends_at', new Date().toISOString())
+	.order('ends_at', { ascending: true }),
+]);
 	const challengesError = challengesResult.error;
 	const friendChallengesError = friendChallengesResult.error;
 
@@ -119,9 +158,6 @@ export default function ChallengeScreen() {
 		return;
 	}
 
-	// Vill inte pilla i databasen så inga friendchallenges finns just nu i databasen,
-	// Loggar felet i konsollen så att det inte syns i appen
-	// Men på to do list är att fixa i databas :)
 	if(friendChallengesError) console.log('friend_challenges:', friendChallengesError.message);
 
 	// Daily and weekly challenges
@@ -153,6 +189,8 @@ export default function ChallengeScreen() {
 				endTime: row.ends_at,
 				isSent,
 				friendsName: names[otherId] ?? 'Unknown',
+				candyReward: row.candy_reward ?? 0,
+				coinReward: row.coin_reward ?? 0,
 				progress: 0, // Placeholer tills vi har räknat ut progress
 			};
 		}),
@@ -187,11 +225,11 @@ export default function ChallengeScreen() {
 
 		{/*Daily*/}
         <Text style={styles.sectionTitle}>Daily</Text>
-        {daily ? <ChallengeCard challenge={daily} /> : <Text style={styles.muted}>No daily challenge.</Text>}
+        {daily ? <ChallengeCard challenge={daily} endsAt={endOfDay()}/> : <Text style={styles.muted}>No daily challenge.</Text>}
 		
 		{/*Weekly*/}
         <Text style={styles.sectionTitle}>Weekly</Text>
-        {weekly ? <ChallengeCard challenge={weekly} /> : <Text style={styles.muted}>No weekly challenge.</Text>}
+        {weekly ? <ChallengeCard challenge={weekly} endsAt={endOfWeek()}/> : <Text style={styles.muted}>No weekly challenge.</Text>}
 
 		{/*Friends*/}
         <Text style={styles.sectionTitle}>Friends</Text>
@@ -212,7 +250,7 @@ export default function ChallengeScreen() {
   );
 }
 
-function ChallengeCard({ challenge }: { challenge: Challenge }) {
+function ChallengeCard({ challenge, endsAt }: { challenge: Challenge; endsAt: Date }) {
 	return (
 	<View style={styles.card}>
 		<Text style={styles.cardTitle}>{challenge.title}</Text>
@@ -221,21 +259,26 @@ function ChallengeCard({ challenge }: { challenge: Challenge }) {
 			 Reward: {challenge.xp_reward} XP, {challenge.candy_reward} Candies, 
 			{challenge.coin_reward} Coins
 		</Text>
+		<Text style={styles.muted}>{timeLeft(endsAt)}</Text>
 	</View>
 	);
 }
 
 function FriendChallengeCard({ challenge }: { challenge: FriendChallenge }) {
+	const task = challenge.metric === 'steps'
+		? `Walk ${challenge.target.toLocaleString()} steps`
+		: `Collect ${challenge.target.toLocaleString()} candies`;
+
 	return (
 	<View style={styles.card}>
 		<Text style={styles.cardTitle}>
-			{challenge.isSent ? `You challenged ${challenge.friendsName}` : `${challenge.friendsName} challenged you`}
+			{challenge.friendsName}: {task}
 		</Text>
 		<Text style={styles.muted}>
-			Goal: {challenge.target.toLocaleString()} {metricLabel(challenge.metric)} 
-			 Ends: {new Date(challenge.endTime).toLocaleDateString()}
-			 Progress: {challenge.progress}%
+			Progress: {challenge.progress}%
+			Reward: {challenge.candyReward} candies,  {challenge.coinReward} coins
 		</Text>
+		<Text style={styles.muted}>{timeLeft(new Date(challenge.endTime))}</Text>
 	</View>
 	);
 }
