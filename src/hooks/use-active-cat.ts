@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 export type ActiveCat = {
   id: string;
   name: string;
+  xp: number;
   appearance: CatAppearance;
 };
 
@@ -24,6 +25,7 @@ type UseActiveCatResult = {
 type ActiveAnimalRow = {
   id: string;
   name: string;
+  xp: number | null;
   species: { asset_key: string | null } | null;
 };
 
@@ -73,7 +75,7 @@ export function useActiveCat(): UseActiveCatResult {
 
       const { data, error: animalError } = await supabase
         .from('animals')
-        .select('id, name, species(asset_key)')
+        .select('id, name, xp, species(asset_key)')
         .eq('id', profile.active_animal_id)
         .eq('owner_id', userId)
         .maybeSingle();
@@ -97,6 +99,7 @@ export function useActiveCat(): UseActiveCatResult {
       setActiveCat({
         id: animal.id,
         name: animal.name,
+        xp: animal.xp ?? 0,
         appearance: { base },
       });
 
