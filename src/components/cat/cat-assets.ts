@@ -7,7 +7,7 @@ export const CAT_ASSETS = {
 } as const;
 
 export const BODY_ASSETS = {
-  body_astro_suit: require("../../../assets/cosmetics/body_Astro_suit.png"),
+  body_astro_suit: require("../../../assets/cosmetics/body_astro_suit.png"),
   body_black_shirt: require("../../../assets/cosmetics/body_black_shirt.png"),
   body_blue_shirt: require("../../../assets/cosmetics/body_blue_shirt.png"),
   body_green_shirt: require("../../../assets/cosmetics/body_green_shirt.png"),

@@ -1,9 +1,12 @@
 import { HomeFloatingActions } from "@/components/home/HomeFloatingActions";
+import { HomeAnimalStatus } from "@/components/home/HomeAnimalStatus";
 import { HomeScene } from "@/components/home/HomeScene";
 import { HomeTopBar } from "@/components/home/HomeTopBar";
 import type { HomeAppearance } from "@/components/home/home-assets";
 import { useActiveCat } from "@/hooks/use-active-cat";
+import { useAnimalMood } from "@/hooks/use-animal-mood";
 import { useProfileBalances } from "@/hooks/use-profile-balances";
+import { calculateLevelProgress } from "@/lib/animal-level";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -12,6 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const HOME_SCENE_SCALE = 1.85;
 
@@ -28,8 +32,11 @@ const PREVIEW_HOME: HomeAppearance = {
 
 export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
+  const safeAreaInsets = useSafeAreaInsets();
   const { balances, loading: balancesLoading } = useProfileBalances();
   const { activeCat, loading: catLoading } = useActiveCat();
+  const { mood } = useAnimalMood(activeCat?.id);
+  const level = activeCat ? calculateLevelProgress(activeCat.xp) : null;
   const viewportWidth = windowWidth;
   const sceneWidth = viewportWidth * HOME_SCENE_SCALE;
   const initialScrollX = (sceneWidth - viewportWidth) / 2;
@@ -41,6 +48,23 @@ export default function HomeScreen() {
         coins={balances?.coins ?? null}
         loading={balancesLoading}
       />
+
+      {activeCat && level && mood ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.statusOverlay,
+            { top: safeAreaInsets.top + 90 },
+          ]}
+        >
+          <HomeAnimalStatus
+            animalName={activeCat.name}
+            level={level}
+            mood={mood}
+            style={styles.animalStatus}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.content}>
         <ScrollView
@@ -97,10 +121,21 @@ const styles = StyleSheet.create({
   catLoading: {
     position: "absolute",
   },
+  statusOverlay: {
+    position: "absolute",
+    right: 24,
+    left: 24,
+    zIndex: 950,
+    alignItems: "flex-start",
+  },
+  animalStatus: {
+    transform: [{ scale: 0.556 }],
+    transformOrigin: "left top",
+  },
   floatingActions: {
     position: "absolute",
     top: "20%",
-    left: 24,
+    right: 24,
     zIndex: 900,
     transform: [{ translateY: -20 }],
   },
