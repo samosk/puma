@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { Fonts } from '../constants/theme';
 import { completeOnBoarding } from '../functions/completeOnBoarding';
 
 
@@ -39,6 +40,16 @@ const CAT_SPRITES: Record<string, ImageSourcePropType> = {
     cat_grey: require('../../assets/cat/cat_tabby.png'),
 };
 
+const ITEM_SPRITES = {
+    candy: require('../../assets/images/candy.png'),
+    coin: require('../../assets/images/coin.png'),
+};
+
+const TUTORIAL_PAGES = {
+	page1: require('../../assets/images/TutorialPage1.png'),
+    page2: require('../../assets/images/TutorialPage2.png'),
+};
+
 type Species = {
     id: string;
     name: string;
@@ -47,32 +58,74 @@ type Species = {
 
 const TUTORIAL_SCREENSHOTS = [
     {
-        id: 'animal-state',
-        title: 'Animal State',
+        id: 'bottom-menu',
+        title: 'Bottom menu',
         description:
-            'Info about the animal state and how it works.',
-        image: CAT_SPRITES.cat_tuxedo,
+            'The bottom menu holds navigation to; Home, Map, your Friends and your Animals',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'top-menu',
+        title: 'Top menu',
+        description:
+            'The top menu holds navigation to your; Stats, Challenges, Settings, Shop, Wardrbobe, Cat state and the amount of Candies and Coins you have collected while using the app.',
+        image: TUTORIAL_PAGES.page2,
     },
     {
-        id: 'map',
+        id: 'Map',
         title: 'Map',
         description:
-            'Info about the map and how candies etc works',
-        image: CAT_SPRITES.cat_orange,
+            'To collect Candies you have to walk close enough to a candy on the map. To collect, you click on the candy and then click "Collect" If the button instead says "Too far away", you have to walk closer.',
+        image: TUTORIAL_PAGES.page1,
     },
     {
-        id: 'room',
-        title: 'Room',
+        id: 'Animals',
+        title: 'Animals',
         description:
-            'Info about the room and how to customize it.',
-        image: CAT_SPRITES.cat_white,
+            'You can own multiple cats apart from the starter cat. To buy a new you click "Empty +", and to select a cat from already owned, you click on the "cat card" and then "Select cat".',
+        image: TUTORIAL_PAGES.page1,
     },
-    {
-        id: 'shop',
+	{
+        id: 'Shop',
         title: 'Shop',
         description:
-            'Info about the shop and how to purchase items.',
-        image: CAT_SPRITES.cat_grey,
+            'The shop is where you can spend your collected candies and coins. The shops offers new items for your room and animals.',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'Wardrobe',
+        title: 'Wardrobe',
+        description:
+            'Here is where you select clothing, furniture and decoration to you room and animal. Only owned items will be shown. ',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'Friends',
+        title: 'Friends',
+        description:
+            'To add a new friend you click "Add new friend". You can also challenge a friend by clicking on the "friend card" and then "Challenge". The "friend cards" shows the friends name, their xp level, age and level of their animal.',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'Stats',
+        title: 'Stats',
+        description:
+            'This is where your all time statistics is shown as well as your daily steps and step-goal. The personal step-goal is pre-set to 5000 steps/day but can be changed in settings. ',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'Challenges',
+        title: 'Challenges',
+        description:
+            'This is where the daily, weekly and personal challenges are shown. Daily and weekly are always activated and will reward you with candies and coins instantly when reached.',
+        image: TUTORIAL_PAGES.page1,
+    },
+	{
+        id: 'Settings',
+        title: 'Settings',
+        description:
+            'This is settings...',
+        image: TUTORIAL_PAGES.page1,
     },
 ];
 
@@ -267,8 +320,9 @@ export default function OnBoardingScreen() {
                 disabled={disabled}
                 style={[
                     styles.button,
-                    secondary && styles.secondaryButton,
-                    disabled && styles.disabledButton,
+					secondary && styles.secondaryButton,
+					disabled && styles.disabledButton,
+
                 ]}
             >
                 <Text
@@ -282,6 +336,27 @@ export default function OnBoardingScreen() {
             </Pressable>
         );
     }
+
+	function goBackButton(
+		label: string,
+		onPress: () => void,
+		disabled = false,
+	) {
+		return (
+			<Pressable
+				onPress={onPress}
+				disabled={disabled}
+				style={[
+					styles.goBackButton,
+					disabled && styles.disabledButton,
+				]}
+			>
+				<Text style={styles.goBackButtonText}>
+					{label}
+				</Text>
+			</Pressable>
+		);
+	}
 
     function catCarousel() {
         if (loadingCats) {
@@ -379,16 +454,40 @@ export default function OnBoardingScreen() {
             <View style={styles.stepContainer}>
                 <View style={styles.stepContent}>
                     <Text style={styles.title}>
-                        Choose your companion
+                    	Welcome!
                     </Text>
 
                     <Text style={styles.subtitle}>
-                        Swipe between the different cats to select yours
+                        Swipe between the different cats and choose yours
                     </Text>
 
                     {catCarousel()}
 
-                    <View style={styles.nameContainer}>
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Age</Text>
+                            <Text style={styles.statValue}>0d</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Level</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Xp</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+
+                        <View style={styles.statItem}>
+                            <Text style={styles.statLabel}>Km</Text>
+                            <Text style={styles.statValue}>0</Text>
+                        </View>
+                    </View>
+
+					{/* enter name for cat button */}
+
+					<View style={styles.nameContainer}>
                         {isEditingName ? (
                             <TextInput
                                 value={animalName}
@@ -416,28 +515,6 @@ export default function OnBoardingScreen() {
                             </Pressable>
                         )}
                     </View>
-
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Age</Text>
-                            <Text style={styles.statValue}>0d</Text>
-                        </View>
-
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Level</Text>
-                            <Text style={styles.statValue}>0</Text>
-                        </View>
-
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Xp</Text>
-                            <Text style={styles.statValue}>0</Text>
-                        </View>
-
-                        <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>Km</Text>
-                            <Text style={styles.statValue}>0</Text>
-                        </View>
-                    </View>
                 </View>
             </View>
         );
@@ -448,7 +525,7 @@ export default function OnBoardingScreen() {
             <View style={styles.stepContainer}>
                 <View style={styles.stepContent}>
                     <Text style={styles.title}>
-                        The new beginning of
+                        The start of
                     </Text>
 
                     <Text style={styles.title}>
@@ -468,13 +545,17 @@ export default function OnBoardingScreen() {
                     <View style={styles.bonusRow}>
                         <View style={styles.bonusItem}>
                             <View style={styles.bonusContent}>
-                                <Text style={styles.bonusEmoji}>🍬</Text>
+                                <Image
+									source={ITEM_SPRITES.candy}
+									style={styles.bonusItemImage}
+									resizeMode="contain"
+								/>
                                 <Text style={styles.bonusAmount}>
                                     x5 Candy
                                 </Text>
                             </View>
 
-                            <Text style={styles.mutedText}>
+                            <Text style={styles.bonusText}>
                                 Candy can be used to buy new pets, clothing,
                                 and change cosmetics.
                             </Text>
@@ -482,13 +563,17 @@ export default function OnBoardingScreen() {
 
                         <View style={styles.bonusItem}>
                             <View style={styles.bonusContent}>
-                                <Text style={styles.bonusEmoji}>🪙</Text>
+                                <Image
+									source={ITEM_SPRITES.coin}
+									style={styles.bonusItemImage}
+									resizeMode="contain"
+								/>
                                 <Text style={styles.bonusAmount}>
                                     x100 Coins
                                 </Text>
                             </View>
 
-                            <Text style={styles.mutedText}>
+                            <Text style={styles.bonusText}>
                                 Coins can be used to buy new furniture,
                                 wallpaper and decorations to customize
                                 your room.
@@ -507,12 +592,13 @@ export default function OnBoardingScreen() {
         return (
             <View style={styles.stepContainer}>
                 <View style={styles.stepContent}>
-                    <Text style={styles.tutorialTitle}>
+                    <Text style={styles.title}>
                         {tutorial.title}
                     </Text>
-                    <Text style={styles.progressText}>
-                        {`${tutorialIndex + 1} OF ${TUTORIAL_SCREENSHOTS.length}`}
-                    </Text>
+
+					<Text style={styles.progressText}>
+						{`${tutorialIndex + 1} OF ${TUTORIAL_SCREENSHOTS.length}`}
+					</Text>				
 
                     <ScrollView
                         ref={tutorialScrollRef}
@@ -560,11 +646,7 @@ export default function OnBoardingScreen() {
                         ))}
                     </ScrollView>
 
-                    <Text style={styles.tutorialDescription}>
-                        {tutorial.description}
-                    </Text>
-
-                    <View style={styles.pagination}>
+					<View style={styles.pagination}>
                         {TUTORIAL_SCREENSHOTS.map((slide, index) => (
                             <View
                                 key={slide.id}
@@ -576,22 +658,27 @@ export default function OnBoardingScreen() {
                             />
                         ))}
                     </View>
-
 					<View style={styles.tutorialTopRow}>
-                        <View style={styles.tutorialTopSpacer} />
+						<Pressable
+							onPress={() => {
+								setMessage('');
+								setStep(LAST_TUTORIAL_STEP);
+							}}
+							style={styles.skipTutorialButton}
+						>
+							<Text style={styles.skipTutorialText}>
+								Skip tutorial
+							</Text>
+						</Pressable>
+					</View>
 
-                        <Pressable
-                            onPress={() => {
-                                setMessage('');
-                                setStep(LAST_TUTORIAL_STEP);
-                            }}
-                            style={styles.skipTutorialButton}
-                        >
-						<Text style={styles.skipTutorialText}>
-							Skip tutorial
-						</Text>
-                        </Pressable>
-                    </View>
+                    <Text style={styles.tutorialDescription}>
+                        {tutorial.description}
+                    </Text>
+
+                    
+
+					
 
                 </View>
             </View>
@@ -633,13 +720,12 @@ export default function OnBoardingScreen() {
 									switchingAccount,
 							)}
 
-							{button(
+							{goBackButton(
 								switchingAccount
 									? 'Signing out...'
-									: '← Switch account',
+									: 'go back',
 								handleSwitchAccount,
 								switchingAccount,
-								true,
 							)}
 						</>
 					)}
@@ -647,7 +733,7 @@ export default function OnBoardingScreen() {
 					{step === 1 && (
 						<>
 							{button('Continue', () => setStep(2))}
-							{button('Go back', goBack, false, true)}
+							{goBackButton('Go back', goBack, false)}
 						</>
 					)}
 
@@ -675,7 +761,7 @@ export default function OnBoardingScreen() {
 									step === LAST_TUTORIAL_STEP && busy,
 								)}
 
-								{button('Back', goBack, busy, true)}
+								{goBackButton('Back', goBack, busy)}
 							</>
 						)}
 				</View>
@@ -709,28 +795,30 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     fixedFooter: {
+		fontFamily: Fonts.regular,
         width: '100%',
         paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 24,
+        paddingBottom: 40,
         alignItems: 'center',
-        backgroundColor: COLORS.background,
+
     },
     title: {
+		fontFamily: Fonts.regular,
         width: '100%',
         paddingHorizontal: 20,
-        fontSize: 26,
+        fontSize: 46,
         fontWeight: '700',
         color: COLORS.text,
         textAlign: 'center',
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 15,
+		fontFamily: Fonts.regular,
+        fontSize: 26,
         color: COLORS.muted,
         textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
+        lineHeight: 30,
+		paddingHorizontal: 20,
     },
     loadingContainer: {
         minHeight: 300,
@@ -739,6 +827,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     mutedText: {
+		fontFamily: Fonts.regular,
         fontSize: 14,
         color: COLORS.muted,
         textAlign: 'center',
@@ -754,7 +843,7 @@ const styles = StyleSheet.create({
     },
     catCard: {
         width: '100%',
-        height: 320,
+        height: 280,
         backgroundColor: 'transparent',
         borderWidth: 0,
         alignItems: 'center',
@@ -765,6 +854,7 @@ const styles = StyleSheet.create({
         height: 290,
     },
     catName: {
+		fontFamily: Fonts.regular,
         width: '100%',
         minHeight: 30,
         lineHeight: 30,
@@ -785,6 +875,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     selectedBadgeText: {
+		fontFamily: Fonts.regular,
         fontSize: 12,
         fontWeight: '700',
         color: COLORS.accent,
@@ -793,8 +884,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 7,
-        marginTop: 12,
+        gap: 8,
     },
     paginationDot: {
         width: 14,
@@ -804,34 +894,41 @@ const styles = StyleSheet.create({
     },
     activePaginationDot: {
         width:	14,
-        backgroundColor: COLORS.accent,
+        backgroundColor: COLORS.muted,
     },
     nameContainer: {
+		fontFamily: Fonts.regular,
         width: '80%',
         alignItems: 'center',
         marginTop: 0,
         marginBottom: 20,
     },
     nameEditButton: {
+		fontFamily: Fonts.regular,
         width: '70%',
         minHeight: 50,
         marginTop: 10,
         backgroundColor: COLORS.card,
         borderRadius: 34,
         paddingHorizontal: 18,
-        paddingVertical: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        borderColor: COLORS.accent,
-        borderWidth: 1,
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
     },
     nameEditButtonText: {
-        fontSize: 16,
-        color: COLORS.text,
+		fontFamily: Fonts.regular,
+        fontSize: 20,
+        color: COLORS.muted,
         fontWeight: '700',
         textAlign: 'center',
     },
     input: {
+		fontFamily: Fonts.regular,
         width: '100%',
         maxWidth: 280,
         marginTop: 10,
@@ -841,26 +938,34 @@ const styles = StyleSheet.create({
         borderRadius: 28,
         paddingHorizontal: 20,
         paddingVertical: 12,
-        fontSize: 16,
+        fontSize: 20,
         color: COLORS.text,
         textAlign: 'center',
     },
     button: {
         width: '70%',
-        height: 50,
+        height: 55,
         borderRadius: 34,
-        backgroundColor: COLORS.accent,
+        backgroundColor: COLORS.card,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 18,
         marginTop: 0,
         marginBottom: 10,
         alignSelf: 'center',
+
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
     },
     buttonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '700',
+		fontFamily: Fonts.regular,
+        color: COLORS.text,
+        fontSize: 27,
+        fontWeight: '900',
     },
     secondaryButton: {
         backgroundColor: COLORS.card,
@@ -870,28 +975,53 @@ const styles = StyleSheet.create({
     secondaryButtonText: {
         color: COLORS.text,
     },
+	goBackButton: {
+		width: '35%',
+		height: 40,
+		borderRadius: 34,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingHorizontal: 18,
+		marginTop: 10,
+		marginBottom: 10,
+		alignSelf: 'center',
+		backgroundColor: COLORS.card,
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
+	},
+
+	goBackButtonText: {
+		fontFamily: Fonts.regular,
+		color: COLORS.text,
+		fontSize: 20,
+		fontWeight: '900',
+	},
     disabledButton: {
         opacity: 0.5,
     },
-    emoji: {
-        fontSize: 64,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
+	bonusItemImage: {
+		width: 42,
+		height: 42,
+		resizeMode: 'contain',
+	},
     bonusCatImage: {
-        width: 200,
-        height: 200,
-        marginBottom: 8,
+        width: 180,
+        height: 180,
+        marginBottom: 5,
     },
     bonusRow: {
         width: '100%',
         gap: 12,
-        marginBottom: 14,
+        marginBottom: 10,
     },
     bonusItem: {
         width: '100%',
         borderRadius: 18,
-        padding: 20,
+        padding: 10,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -907,38 +1037,55 @@ const styles = StyleSheet.create({
         fontSize: 28,
     },
     bonusAmount: {
-        fontSize: 28,
-        fontWeight: '800',
+		fontFamily: Fonts.regular,
+        fontSize: 36,
+        fontWeight: '600',
         color: COLORS.text,
     },
+	bonusText:{
+		fontFamily: Fonts.regular,
+        fontSize: 16,
+        fontWeight: '600',
+        color: COLORS.text,
+        alignItems: 'center',
+        justifyContent: 'center',
+	},
     progressText: {
+		fontFamily: Fonts.regular,
         color: COLORS.muted,
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: 20,
+        fontWeight: '600',
         letterSpacing: 2,
-        marginBottom: 32,
     },
 	tutorialTopRow: {
-		width: '100%',
-		minHeight: 36,
+		fontFamily: Fonts.regular,
+		height: 36,
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		paddingVertical: 20,
+		flexDirection: 'row',
+		textAlign: 'center',
+		marginTop: 6,
 	},
 	tutorialTopSpacer: {
 		flex: 1,
 	},
 	skipTutorialButton: {
+		fontFamily: Fonts.regular,
 		paddingHorizontal: 14,
 		paddingVertical: 7,
 		borderRadius: 20,
-		borderWidth: 1,
-		borderColor: COLORS.border,
-		backgroundColor: 'transparent',
+		backgroundColor: COLORS.card,
+		// Drop shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.10,
+		shadowRadius: 4,
+		elevation: 4,
 	},
     skipTutorialText: {
-        color: COLORS.muted,
-        fontSize: 12,
+		fontFamily: Fonts.regular,
+        color: COLORS.text,
+        fontSize: 14,
         fontWeight: '600',
     },
     tutorialScreenshotCard: {
@@ -950,23 +1097,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     tutorialScreenshotImage: {
-        width: 270,
-        height: 290,
+        width: '100%',
+        height: 280,
     },
-   	tutorialTitle: {
-		fontSize: 28,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		alignSelf: 'stretch',
-		marginTop: 0,
-		marginBottom: 8,
-	},
     tutorialDescription: {
+		fontFamily: Fonts.regular,
         fontSize: 16,
         lineHeight: 25,
         textAlign: 'center',
         color: COLORS.muted,
-        marginBottom: 28,
+		marginTop: 5,
     },
     confirmationCard: {
         width: '100%',
@@ -985,6 +1125,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     errorText: {
+		fontFamily: Fonts.regular,
         width: '100%',
         color: COLORS.error,
         fontSize: 14,
@@ -993,6 +1134,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     extra: {
+		fontFamily: Fonts.regular,
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1002,14 +1144,14 @@ const styles = StyleSheet.create({
         margin: 0,
     },
     statsContainer: {
-        width: '100%',
+		fontFamily: Fonts.regular,
+        width: '80%',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: 'transparent',
-        borderRadius: 20,
-        paddingVertical: 8,
-        paddingHorizontal: 8,
+        paddingVertical: 20,
+        paddingHorizontal: 20,
     },
     statItem: {
         flex: 1,
@@ -1018,12 +1160,14 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     statLabel: {
-        fontSize: 18,
-        fontWeight: '700',
+		fontFamily: Fonts.regular,
+        fontSize: 20,
+        fontWeight: '600',
         color: COLORS.text,
     },
     statValue: {
-        fontSize: 14,
+		fontFamily: Fonts.regular,
+        fontSize: 18,
         fontWeight: '600',
         color: COLORS.text,
     },

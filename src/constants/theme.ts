@@ -27,28 +27,27 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
+    ios: {
+        sans: 'system-ui',
+        serif: 'ui-serif',
+        rounded: 'ui-rounded',
+        mono: 'ui-monospace',
+        regular: 'Itim_400Regular',
+    },
+    default: {
+        sans: 'normal',
+        serif: 'serif',
+        rounded: 'normal',
+        mono: 'monospace',
+        regular: 'Itim_400Regular',
+    },
+    web: {
+        sans: 'var(--font-display)',
+        serif: 'var(--font-serif)',
+        rounded: 'var(--font-rounded)',
+        mono: 'var(--font-mono)',
+        regular: 'Itim',
+    },
 });
 
 export const Spacing = {

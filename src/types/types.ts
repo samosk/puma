@@ -7,6 +7,13 @@ export type Candy = {
     collected_at: string | null;
 };
 
+type CandyMarkerProps = {
+    candy: Candy;
+    onPress: (candy: Candy) => void;
+    isSelected: boolean;
+    isAnyCandySelected: boolean;
+};
+
 export type User = {
     id: string;
     username: string;

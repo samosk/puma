@@ -846,14 +846,15 @@ export default function MapScreen() {
                         longitudeDelta: 0.05,
                     }}
                     onPanDrag={handleMapPan}
-                >
-                    {candies.map((candy) => (
-                        <CandyMarker
-                            key={candy.id}
-                            candy={candy}
-                            onPress={handleCandyPress}
-                        />
-                    ))}
+                > 
+				{candies.map((candy) => (
+					<CandyMarker
+						key={candy.id}
+						candy={candy}
+						onPress={handleCandyPress}
+						selectedCandyId={selectedCandy?.id ?? null}
+					/>
+				))}
                 </MapView>
             )}
 
