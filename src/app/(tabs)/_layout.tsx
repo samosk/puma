@@ -1,8 +1,17 @@
 import { Tabs } from 'expo-router';
-
 import { CustomTabBar } from '@/components/navigation/custom-tab-bar';
+import { useFonts } from 'expo-font';
+import { Itim_400Regular } from '@expo-google-fonts/itim';
 
 export default function TabLayout() {
+  const [fontsLoaded] = useFonts({
+    Itim_400Regular,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <Tabs
       initialRouteName="index"

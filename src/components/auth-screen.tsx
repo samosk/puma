@@ -1,236 +1,360 @@
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+	ActivityIndicator,
+	ImageBackground,
+	KeyboardAvoidingView,
+	Platform,
+	Pressable,
+	StyleSheet,
+	Text,
+	TextInput,
+	View,
 } from 'react-native';
+import { Fonts } from '../constants/theme';
 
-import { useRouter } from 'expo-router';
-
-// Same palette as the index screen; change freely
+// Match the onboarding screen styling
 const COLORS = {
-  background: '#101318',
-  card: '#1A1E25',
-  border: '#2A303A',
-  text: '#EEF1F5',
-  muted: '#98A2B3',
-  accent: '#5B8DEF',
-  error: '#F97066',
+    background: '#F2F3F5',
+    card: '#FFFFFF',
+    border: '#DDE1E7',
+    text: '#252A34',
+    muted: '#737B89',
+    accent: '#6685D8',
+    error: '#C74646',
 };
 
-// 3-20 characters: lowercase letters, numbers and underscores
+const LOGIN_BACKGROUND = require('../../assets/images/BackgroundLogin.png');
+
+// 3–20 characters: lowercase letters, numbers and underscores
 const USERNAME_RULE = /^[a-z0-9_]{3,20}$/;
 
 export default function AuthScreen() {
-  // 'signIn' = log in to an existing account, 'signUp' = register
-  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
+    const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [message, setMessage] = useState<{
+        text: string;
+        isError: boolean;
+    } | null>(null);
 
-  const isSignUp = mode === 'signUp';
+    const isSignUp = mode === 'signUp';
 
-  async function handleSubmit() {
-    setMessage(null);
-    setBusy(true);
-    try {
-      if (isSignUp) {
-        await signUp();
-      } else {
-        await signIn();
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
+    async function handleSubmit() {
+        setMessage(null);
+        setBusy(true);
 
-  async function signIn() {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    // On success there's nothing to do here: AuthProvider notices the
-    // new session and the app switches to the tabs automatically.
-    if (error) setMessage({ text: error.message, isError: true });
-  }
-
-  async function signUp() {
-    const name = username.trim().toLowerCase();
-
-    if (!USERNAME_RULE.test(name)) {
-      setMessage({ text: 'Username must be 3-20 characters: a-z, 0-9 or _', isError: true });
-      return;
+        try {
+            if (isSignUp) {
+                await signUp();
+            } else {
+                await signIn();
+            }
+        } catch (error) {
+            setMessage({
+                text: error instanceof Error
+                    ? error.message
+                    : 'Something went wrong. Please try again.',
+                isError: true,
+            });
+        } finally {
+            setBusy(false);
+        }
     }
 
-    // Check the username is free.
-    // Needs read access to profiles (the "Dev: anyone can read profiles" policy).
-    const { data: existing, error: checkError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', name)
-      .maybeSingle();
-    if (checkError) {
-      setMessage({ text: checkError.message, isError: true });
-      return;
-    }
-    if (existing) {
-      setMessage({ text: 'That username is taken', isError: true });
-      return;
+    async function signIn() {
+        const { error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+        });
+
+        if (error) {
+            setMessage({
+                text: error.message,
+                isError: true,
+            });
+        }
     }
 
-    // Create the account. The username is stored on the account, and
-    // AuthProvider (src/lib/auth.tsx) uses it to create the profile.
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { username: name } },
-    });
+    async function signUp() {
+        const name = username.trim().toLowerCase();
 
-    if (error) {
-      setMessage({ text: error.message, isError: true });
-    } else if (!data.session) {
-      // Happens when "Confirm email" is turned on in Supabase
-      setMessage({ text: 'Check your email to confirm your account, then log in.', isError: false });
-      setMode('signIn');
+        if (!USERNAME_RULE.test(name)) {
+            setMessage({
+                text: 'Username must be 3–20 characters: a-z, 0-9 or _',
+                isError: true,
+            });
+            return;
+        }
+
+        // Check whether the username is already taken.
+        const { data: existing, error: checkError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', name)
+            .maybeSingle();
+
+        if (checkError) {
+            setMessage({
+                text: checkError.message,
+                isError: true,
+            });
+            return;
+        }
+
+        if (existing) {
+            setMessage({
+                text: 'That username is taken.',
+                isError: true,
+            });
+            return;
+        }
+
+        // Create the account and pass the username to Supabase.
+        const { data, error } = await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+            options: {
+                data: {
+                    username: name,
+                },
+            },
+        });
+
+        if (error) {
+            setMessage({
+                text: error.message,
+                isError: true,
+            });
+        } else if (!data.session) {
+            setMessage({
+                text: 'Check your email to confirm your account, then log in.',
+                isError: false,
+            });
+            setMode('signIn');
+        }
     }
-  }
 
-
-	async function handleSwitchAccount() {
-		const { error } = await supabase.auth.signOut();
-		const router = useRouter();
-
-		if (error) {
-			setMessage({
-				text: 'Could not sign out. Please try again.',
-				isError: true,
-			});
-			console.error('Sign-out failed:', error);
-			return;
-		}
-	}
-
-  return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.card}>
-        <Text style={styles.title}>{isSignUp ? 'Create account' : 'Log in'}</Text>
-
-        {/* Username only matters when registering */}
-        {isSignUp && (
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor={COLORS.muted}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="username"
-          />
-        )}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={COLORS.muted}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password (at least 6 characters)"
-          placeholderTextColor={COLORS.muted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          textContentType={isSignUp ? 'newPassword' : 'password'}
-        />
-
-        {message && (
-          <Text style={[styles.message, { color: message.isError ? COLORS.error : COLORS.muted }]}>
-            {message.text}
-          </Text>
-        )}
-
-        <Pressable style={styles.button} onPress={handleSubmit} disabled={busy}>
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>{isSignUp ? 'Create account' : 'Log in'}</Text>
-          )}
-        </Pressable>
-
-        {/* -----------------------------------------------------------
-            FUTURE: "Continue with Google" button goes here.
-            It will call supabase.auth.signInWithIdToken(...). Nothing
-            else in the app needs to change: AuthProvider picks up the
-            session and creates the profile on first login.
-           ----------------------------------------------------------- */}
-
-        <Pressable
-          onPress={() => {
-            setMode(isSignUp ? 'signIn' : 'signUp');
-            setMessage(null);
-          }}
+    return (
+        <ImageBackground
+            source={LOGIN_BACKGROUND}
+            style={styles.background}
+            resizeMode="cover"
         >
-          <Text style={styles.switchText}>
-            {isSignUp ? 'Already have an account? Log in' : "New here? Create an account"}
-          </Text>
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
-  );
+            <KeyboardAvoidingView
+                style={styles.screen}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+
+			<View style={styles.headerBox}>
+				<Text style={styles.title}>
+					{mode === 'signIn' ? 'Log in' : 'Create account'}
+				</Text>
+
+				<Text style={styles.subtitle}>
+					{mode === 'signIn'
+						? 'Welcome back!'
+						: 'Join the adventure!'}
+				</Text>
+			</View>
+
+                <View style={styles.card}>
+                    {isSignUp && (
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Username"
+                            placeholderTextColor={COLORS.muted}
+                            value={username}
+                            onChangeText={setUsername}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            textContentType="username"
+                            editable={!busy}
+                        />
+                    )}
+
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Email"
+                        placeholderTextColor={COLORS.muted}
+                        value={email}
+                        onChangeText={setEmail}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="email-address"
+                        textContentType="emailAddress"
+                        editable={!busy}
+                    />
+
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Password"
+                        placeholderTextColor={COLORS.muted}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                        textContentType={
+                            isSignUp ? 'newPassword' : 'password'
+                        }
+                        editable={!busy}
+                    />
+
+                    {message && (
+                        <Text
+                            style={[
+                                styles.message,
+                                {
+                                    color: message.isError
+                                        ? COLORS.error
+                                        : COLORS.text,
+                                },
+                            ]}
+                        >
+                            {message.text}
+                        </Text>
+                    )}
+
+                    <Pressable
+                        style={[
+                            styles.button,
+                            busy && styles.buttonDisabled,
+                        ]}
+                        onPress={handleSubmit}
+                        disabled={busy}
+                    >
+                        {busy ? (
+                            <ActivityIndicator color={COLORS.text} />
+                        ) : (
+                            <Text style={styles.buttonText}>
+                                {isSignUp
+                                    ? 'Create account'
+                                    : 'Log in'}
+                            </Text>
+                        )}
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => {
+                            setMode(isSignUp ? 'signIn' : 'signUp');
+                            setMessage(null);
+                        }}
+                        disabled={busy}
+                        style={styles.switchButton}
+                    >
+                        <Text style={styles.switchText}>
+                            {isSignUp
+                                ? 'Already have an account? Log in'
+                                : 'New here? Create an account'}
+                        </Text>
+                    </Pressable>
+                </View>
+            </KeyboardAvoidingView>
+        </ImageBackground>
+    );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: COLORS.background,
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderColor: COLORS.border,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 20,
-    gap: 12,
-  },
-  title: { fontSize: 26, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
-  input: {
-    borderColor: COLORS.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  message: { fontSize: 14 },
-  button: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-  switchText: { color: COLORS.muted, textAlign: 'center', marginTop: 4 },
+    background: {
+        flex: 1,
+    },
+	screen: {
+		flex: 1,
+		justifyContent: 'center',
+		paddingHorizontal: 24,
+		paddingVertical: 30,
+		paddingTop: 380,
+	},
+    card: {
+        width: '100%',
+        alignSelf: 'center',
+        gap: 12,
+        padding: 20,
+        borderRadius: 24,
+    },
+
+    title: {
+		fontFamily: Fonts.regular,
+        fontSize: 40,
+        fontWeight: '600',
+        color: COLORS.text,
+        textAlign: 'center',
+    },
+
+    subtitle: {
+		fontFamily: Fonts.regular,
+        fontSize: 20,
+        color: COLORS.text,
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+
+    input: {
+        height: 55,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: 34,
+        paddingHorizontal: 20,
+		fontFamily: Fonts.regular,
+        fontSize: 18,
+        color: COLORS.text,
+        backgroundColor: COLORS.card,
+    },
+
+    message: {
+		fontFamily: Fonts.regular,
+        fontSize: 15,
+        textAlign: 'center',
+    },
+
+    button: {
+        width: '70%',
+        height: 55,
+        borderRadius: 34,
+        backgroundColor: COLORS.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 18,
+        marginTop: 0,
+        marginBottom: 10,
+        alignSelf: 'center',
+
+        // Drop shadow
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 3,
+        },
+        shadowOpacity: 0.10,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+
+    buttonText: {
+		fontFamily: Fonts.regular,
+        color: COLORS.text,
+        fontSize: 27,
+        fontWeight: '900',
+    },
+
+    switchButton: {
+        paddingVertical: 8,
+    },
+
+    switchText: {
+		fontFamily: Fonts.regular,
+        color: COLORS.muted,
+        fontSize: 16,
+        textAlign: 'center',
+    },
+	headerBox: {
+		alignItems: 'center',
+		marginBottom: 8,
+		transform: [{ translateY: -330 }],
+	},
 });
