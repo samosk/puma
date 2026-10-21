@@ -12,6 +12,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const FRIEND_CHALLENGE_CANDY_REWARD = 6;
 const FRIEND_CHALLENGE_COIN_REWARD = 100;
 //const FRIEND_CHALLENGE_XP_REWARD = ska det vara fast eller dynamiskt beroende på typ..?
+// Max ammount of friends allowed
+const MAX_FRIENDS = 99; // 
+
+// Placeholder för leveluträkning, samma som lovisa
+const XP_PER_LEVEL = 100;
+const getLevel = (xp : number) => Math.floor(xp / XP_PER_LEVEL) + 1;
+const getXpToNextLevel = (xp: number) => XP_PER_LEVEL - (xp % XP_PER_LEVEL);
+
+// Function to calculate and show when the animal was made
+function ageInDays(createdAt: string | null): number {
+	if (!createdAt) return 0;
+	return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000));
+}
 
 // ---------------------------------------------------------------
 // COLORS
@@ -34,6 +47,7 @@ type Friend = {
   	animal: { 
 		name: string; 
 		xp: number 
+		created_at: string | null
 		species: { name: string; asset_key: string } | null
 	} | null;
 };
@@ -44,7 +58,7 @@ const FALLBACK_EMOJI = '🐾';
 function Sprite({ assetKey, size = 56 }: { assetKey?: string; size?: number }) {
   const source = assetKey ? SPRITES[assetKey] : undefined;
   if (source) {
-	return <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />;
+	return <Image source={source} style={{ width: size, height: size }} contentFit="contain" />;
   }
   return (
 	<View style={[styles.spritePlaceholder, { width: size, height: size }]}>
@@ -64,30 +78,46 @@ function FriendCard({
 		onPress: () => void;
 		onChallenge: () => void;
 	}) {
+		const xp = friend.animal?.xp ?? 0;
 	  return (
-		<Pressable onPress={onPress} style={styles.card}
+		<Pressable onPress={onPress} style={[styles.card, expanded && styles.cardExpanded]}
 		accessibilityRole="button"
 		accessibilityLabel={friend.username}
 		>
 		<View style={styles.row}>
+		{/*Animal picture*/}
 		<Sprite assetKey={friend.animal?.species?.asset_key} />
+		{/*Name and xp*/}
 		  <View style={styles.info}>
-			<Text style={styles.value}>{friend.username}</Text>
-			{friend.animal ? (
-				<Text style={styles.muted}>
-					{friend.animal.name} {friend.animal.xp}
-				</Text>
-			) : (
-				<Text style={styles.muted}>No animal yet</Text>
-			)}
+			<Text style={styles.name}>{friend.username}</Text>
+			<Text style={styles.small}>
+				{friend.animal ? `${getXpToNextLevel(xp)} xp until next level` : 'No animals yet'}
+			</Text>
 			</View>
+
+		{/*Level and age*/}
+		{friend.animal && (
+			<View style={styles.right}>
+				<View style={styles.levelRow}>
+					{/*Om vi vill att det ska stå "level" brevid leveln, blev lite uggo*/}
+					<Text style={styles.small}>Level</Text> 
+
+					<View style={styles.level}>
+						<Text style={styles.levelText}>{getLevel(xp)}</Text>
+					</View>
+				</View>
+				<Text style={styles.small}>Age: {ageInDays(friend.animal.created_at)} days</Text>
+			</View>
+		)}
 		</View>
+
 		  {expanded && (
-			<View style={styles.details}>
-			<Pressable style={styles.challengeButton} onPress={onChallenge}>
-			  <Text style={styles.challengeButtonText}>Challenge</Text>
+			<Pressable
+				style={({pressed}) => [styles.challengeButton, pressed && {opacity: 0.7}]}
+				onPress={onChallenge}
+			>
+			<Text style={styles.challengeButtonText}>Challenge</Text>
 			</Pressable>
-			</View>
 		  )}
 		</Pressable>
 	  );
@@ -189,7 +219,7 @@ async function sendChallenge (choice: ChallengeChoice) {
 
 	const {data: animals, error: animalError} = await supabase
 		.from('animals')
-		.select('owner_id, name, xp, species(name, asset_key)')
+		.select('owner_id, name, xp, created_at, species(name, asset_key)')
 		.in('owner_id', friendIds);
 
 	if (animalError) {
@@ -223,8 +253,17 @@ async function sendChallenge (choice: ChallengeChoice) {
 
   return (
 	<SafeAreaView style={styles.screen} edges={['top']}>
-	  {/* Page title: shows the table name and how many rows came back */}
-	  <Text style={styles.title}>Friends</Text>
+	  {/*Header*/}
+	  <View style={styles.header}>
+		<Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
+			<Text style={styles.headerIcon}>←</Text>
+		</Pressable>
+
+		<Text style={styles.headerTitle}>
+			Friends ({rows.length} of {MAX_FRIENDS})
+		</Text>
+		<View style={{width:32}}/>
+	  </View>
 
 	  <FlatList
 		data={rows}
@@ -278,42 +317,69 @@ function formatValue(value: unknown): string {
 // STYLES — sizes, spacing and layout for everything above
 // ---------------------------------------------------------------
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
+  screen: { flex: 1, backgroundColor: '#EDEDED', paddingHorizontal: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: COLORS.text, marginTop: 16 },
+  title: { fontSize: 28, fontWeight: '700', color: '#2c2c2c', marginTop: 16 },
   muted: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
   error: { fontSize: 14, color: COLORS.error },
   list: { paddingVertical: 16, gap: 12 },
-  card: {
-	backgroundColor: COLORS.card,
-	borderColor: COLORS.border,
-	borderWidth: 1,
-	borderRadius: 12,
-	padding: 14,
-	gap: 8,
-  },
-  field: { flexDirection: 'row', gap: 12 },
-  key: { width: 110, fontSize: 13, color: COLORS.muted },
-  value: { flex: 1, fontSize: 15, color: COLORS.text },
 
-  //Styling grejer
-  details: {
+  header: {
+	flexDirection: 'row',
+	alignItems: 'center',
+	justifyContent: 'space-between',
 	marginTop: 12,
-	paddingTop: 12,
-	borderTopWidth: 1,
-	borderTopColor: COLORS.border,
-	gap: 10,
   },
-  	row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-	info: { flex: 1 },
+  headerIcon: {fontSize: 32, color: '#2c2c2c', width: 32},
+  headerTitle: {fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
+
+  card: {
+	backgroundColor: '#FFFFFF',
+	borderRadius: 20,
+	paddingHorizontal: 18,
+	paddingVertical: 14,
+	borderWidth: 2,
+	borderColor: 'transparent',
+	shadowColor: '#000000',
+	shadowOpacity: 0.08,
+	shadowRadius: 1,
+	shadowOffset: {width: 0, height: 2},
+  },
+  cardExpanded: {borderColor: '#3DCB2A'},
+  row: {flexDirection: 'row', alignItems: 'center', gap: 14},
+  info: {flex: 1},
+  name: {fontSize: 18, fontWeight: '600', color: '#2C2C2C'},
+  small: {fontSize: 11, color: '#919191', marginTop: 2},
+
+  right: {alignSelf: 'stretch', alignItems: 'flex-end', justifyContent: 'space-between'},
+  levelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  level: {
+	minWidth: 26,
+	height: 26,
+	borderRadius: 8,
+	borderWidth: 1,
+	borderColor: '#2C2C2C',
+	alignItems: 'center',
+	justifyContent: 'center',
+	paddingHorizontal: 4,
+  },
+  levelText: {fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
+
   challengeButton: {
-	alignSelf: 'flex-start',
-	backgroundColor: COLORS.muted,
-	borderRadius: 14,
-	paddingHorizontal: 16,
-	paddingVertical: 8,
+	alignSelf: 'center',
+	marginTop: 14,
+	backgroundColor: '#E6E6E6',
+	borderRadius: 24,
+	paddingHorizontal: 22,
+	paddingVertical: 10,
+	shadowColor: '#000000',
+	shadowOpacity: 0.12,
+	shadowRadius: 1,
+	shadowOffset: {width: 0, height: 2},
   },
-  challengeButtonText: { color: '#FFFFFF', fontWeight: '600' },
+  challengeButtonText: { fontSize: 16, color: '#2C2C2C', fontWeight: '600' },
+
   spritePlaceholder: {
     backgroundColor: COLORS.tag,
     borderRadius: 10,
