@@ -1,4 +1,3 @@
-import LogoutButton from '@/components/logout-button';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -28,6 +27,8 @@ const PROGRESS_ICON_SIZE = 40; // cat inside the daily goal bar
 const ACTIVITY_BAR_HEIGHT = 150; // height of each pill in the activity chart
 const ACTIVITY_BAR_WIDTH = 32;
 const CANDY_CHART_HEIGHT = 120; // height of the tallest candy bar
+// Size of the back arrow (the spacer on the right matches it)
+const HEADER_ICON_SIZE = 34;
 
 // ---------------------------------------------------------------
 // COLORS (from the Figma design)
@@ -155,13 +156,11 @@ export default function StatsScreen() {
           hitSlop={12}
           accessibilityLabel="Go back"
         >
-          <MaterialCommunityIcons name="arrow-left" size={34} color={COLORS.icon} />
+          <MaterialCommunityIcons name="arrow-left" size={HEADER_ICON_SIZE} color={COLORS.icon} />
         </Pressable>
         <Text style={styles.headerTitle}>My stats</Text>
-        {/* Settings: not wired up yet */}
-        <Pressable hitSlop={12} accessibilityLabel="Settings">
-          <MaterialCommunityIcons name="cog" size={34} color={COLORS.icon} />
-        </Pressable>
+        {/* Empty space as wide as the arrow, so the title stays centered */}
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -179,7 +178,6 @@ export default function StatsScreen() {
 
         <CandyCard days={chartDays} averageCandies={averageCandies} />
 
-        <LogoutButton />
       </ScrollView>
     </SafeAreaView>
   );
@@ -431,6 +429,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   headerTitle: { fontSize: 28, fontWeight: '700', color: COLORS.text },
+  headerSpacer: { width: HEADER_ICON_SIZE },
 
   // Cards
   card: {
