@@ -2,7 +2,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ImageSourcePropType, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -265,7 +265,7 @@ const [challengesResult, friendChallengesResult, activityResult	] = await Promis
 
 		{/*Daily*/}
 		<Section
-			icon = "🎖️"
+			icon ={require('@/assets/images/Daily_Medal.png')}
 			title = "Daily challenges"
 			subtitle = {timeLeft(endOfDay())}
 			right = {`${dailyDone}/${daily ? 1 : 0} completed`}
@@ -285,7 +285,7 @@ const [challengesResult, friendChallengesResult, activityResult	] = await Promis
 		
 		{/*Weekly*/}
 		<Section
-			icon="🏅"
+			icon={require('@/assets/images/Weekly_Medal.png')}
 			title="Weekly challenges"
 			subtitle={timeLeft(endOfWeek())}
 			right={`${weeklyDone}/${weekly ? 1 : 0} completed`}
@@ -304,7 +304,7 @@ const [challengesResult, friendChallengesResult, activityResult	] = await Promis
 		</Section>
 
 		{/*Friends*/}
-        <Section icon="🐾" title="Friend challenges" right={`${friendChallenges.length} active`}>
+        <Section icon={require('@/assets/images/Friend_Medal.png')} title="Friend challenges" right={`${friendChallenges.length} active`}>
 		 	{friendChallenges.length === 0 ? (
 				<Text style={styles.small}>No friend challenges active!</Text>
 		  	) : (
@@ -341,7 +341,7 @@ function Section({
 	right,
 	children,
 }: {
-	icon: string;
+	icon: ImageSourcePropType;
 	title: string;
 	subtitle?: string;
 	right: string;
@@ -351,7 +351,10 @@ function Section({
 		<View style={styles.block}>
 			<View style={styles.blockHeader}>
 				<View>
-					<Text style={styles.blockTitle}>{icon} {title}</Text>
+					<View style={styles.blockTitleRow}>
+						<Image source={icon} style={styles.blockIcon} resizeMode="contain"/>
+						<Text style={styles.blockTitle}>{title}</Text>
+					</View>
 					{subtitle && <Text style={styles.small}>{subtitle}</Text>}
 				</View>
 				<Text style={styles.small}>{right}</Text>
@@ -392,9 +395,12 @@ function ChallengeCard({
 			{timeText ? `${timeText}  |  ` : ''}
 			{Math.min(current, target).toLocaleString()} / {target.toLocaleString()}
 			</Text>
-			<Text style={styles.reward}>
-			🍬 x{candyReward}   🪙 x{coinReward}
-			</Text>
+			<View style={styles.rewardRow}>
+				<Image source={require('@/assets/images/candy.png')} style={styles.rewardIcon} resizeMode="contain"/>
+				<Text style={styles.reward}>x{candyReward}</Text>
+				<Image source={require('@/assets/images/coin.png')} style={styles.rewardIcon} resizeMode="contain"/>
+				<Text style={styles.reward}>x{coinReward}</Text>
+			</View>
 		</View>
 
 		<View style={styles.barEmpty}>
@@ -453,6 +459,8 @@ const styles = StyleSheet.create({
   },
   blockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   blockTitle: { fontSize: 15, fontWeight: '600', color: COLORS.small },
+  blockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  blockIcon: { width: 30, height: 30 },
 
   // Card inside blocks
   card: {
@@ -466,6 +474,8 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.text },
   rewardLabel: { fontSize: 13, fontWeight: '600', color: COLORS.text },
   reward: { fontSize: 13, color: COLORS.small },
+  rewardRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rewardIcon: { width: 18, height: 18 },
 
   // Progress-bar
   barEmpty: {
