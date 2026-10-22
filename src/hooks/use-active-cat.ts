@@ -1,5 +1,8 @@
 import {
+  ACC_ASSETS,
+  BODY_ASSETS,
   CAT_ASSETS,
+  HAT_ASSETS,
   type CatAppearance,
   type CatBaseKey,
 } from '@/components/cat/cat-assets';
@@ -27,6 +30,10 @@ type ActiveAnimalRow = {
   name: string;
   xp: number | null;
   species: { asset_key: string | null } | null;
+  // Everything equipped on this cat, with the cosmetic's slot and asset key
+  user_cosmetics: {
+    cosmetics: { type: string; asset_key: string } | null;
+  }[];
 };
 
 function isCatBaseKey(value: unknown): value is CatBaseKey {
@@ -34,6 +41,12 @@ function isCatBaseKey(value: unknown): value is CatBaseKey {
     typeof value === 'string' &&
     Object.prototype.hasOwnProperty.call(CAT_ASSETS, value)
   );
+}
+
+// Same helper as in the wardrobe screen: returns the key if it exists in
+// the asset map, otherwise null (then that layer isn't drawn).
+function pick<T extends object>(map: T, key?: string | null): keyof T | null {
+  return key && key in map ? (key as keyof T) : null;
 }
 
 export function useActiveCat(): UseActiveCatResult {
@@ -73,9 +86,11 @@ export function useActiveCat(): UseActiveCatResult {
         return;
       }
 
+      // The cat, its species, and the cosmetics equipped on it, in one request.
+      // user_cosmetics is joined through user_cosmetics.equipped_animal_id.
       const { data, error: animalError } = await supabase
         .from('animals')
-        .select('id, name, xp, species(asset_key)')
+        .select('id, name, xp, species(asset_key), user_cosmetics(cosmetics(type, asset_key))')
         .eq('id', profile.active_animal_id)
         .eq('owner_id', userId)
         .maybeSingle();
@@ -96,11 +111,28 @@ export function useActiveCat(): UseActiveCatResult {
       const assetKey = animal.species?.asset_key;
       const base = isCatBaseKey(assetKey) ? assetKey : 'cat_black';
 
+      // What the cat is wearing, per slot (same as the wardrobe screen).
+      // Room items have other types, so they are simply ignored here.
+      const wornBySlot: Partial<Record<'hat' | 'neck' | 'body', string>> = {};
+      for (const item of animal.user_cosmetics ?? []) {
+        const cosmetic = item.cosmetics;
+        if (cosmetic && (cosmetic.type === 'hat' || cosmetic.type === 'neck' || cosmetic.type === 'body')) {
+          wornBySlot[cosmetic.type] = cosmetic.asset_key;
+        }
+      }
+
       setActiveCat({
         id: animal.id,
         name: animal.name,
         xp: animal.xp ?? 0,
-        appearance: { base },
+        // Built exactly like the wardrobe preview, so the cat looks the
+        // same on both screens. Note: the "neck" slot is drawn as "acc".
+        appearance: {
+          base,
+          hat: pick(HAT_ASSETS, wornBySlot.hat),
+          acc: pick(ACC_ASSETS, wornBySlot.neck),
+          body: pick(BODY_ASSETS, wornBySlot.body),
+        } as CatAppearance,
       });
 
       if (assetKey && !isCatBaseKey(assetKey)) {

@@ -50,7 +50,17 @@ const COLORS = {
   streakText: '#D0562A',
   error: '#D92D20',
 };
+// ---------------------------------------------------------------
+// CARD ICONS (assets/icons/stats)
+// ---------------------------------------------------------------
+const CARD_ICON_SIZE = 24;
 
+const ICONS = {
+  dailyGoal: require('../../assets/stats/paw.png'),
+  activity: require('../../assets/stats/activity.png'),
+  candies: require('../../assets/stats/candy.png'),
+  fire: require('../../assets/stats/fire.png'),
+};
 type Profile = {
   current_streak: number;
   daily_step_goal: number | null;
@@ -182,7 +192,10 @@ export default function StatsScreen() {
     </SafeAreaView>
   );
 }
-
+// One of the card icons as an image
+function CardIcon({ source }: { source: number }) {
+  return <Image source={source} style={styles.cardIcon} />;
+}
 // ---------------------------------------------------------------
 // CARD HEADER
 // Icon + grey label on the left, optional label + big number on the right.
@@ -253,12 +266,12 @@ function StepProgressCard({
   return (
     <View style={styles.card}>
       <CardHeader
-        icon={<MaterialCommunityIcons name="paw" size={22} color={COLORS.muted} />}
+        icon={<CardIcon source={ICONS.dailyGoal} />}
         title="Daily goal"
         right={
           <View style={styles.streakBadge}>
             <Text style={styles.streakText}>{streak} day streak</Text>
-            <MaterialCommunityIcons name="fire" size={20} color={COLORS.streakText} />
+            {<CardIcon source={ICONS.fire} />}
           </View>
         }
       />
@@ -309,11 +322,7 @@ function ActivityCard({
   return (
     <View style={styles.card}>
       <CardHeader
-        icon={
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="pulse" size={16} color={COLORS.card} />
-          </View>
-        }
+        icon={<CardIcon source={ICONS.activity} />}
         title="Activity"
         right={<AverageLabel label="Daily average steps" value={averageSteps.toLocaleString()} />}
       />
@@ -370,7 +379,7 @@ function CandyCard({ days, averageCandies }: { days: ChartDay[]; averageCandies:
   return (
     <View style={styles.card}>
       <CardHeader
-        icon={<MaterialCommunityIcons name="candy-outline" size={22} color={COLORS.muted} />}
+        icon={<CardIcon source={ICONS.candies} />}
         title="Candies"
         right={<AverageLabel label="Daily average collected" value={String(averageCandies)} />}
       />
@@ -553,4 +562,5 @@ const styles = StyleSheet.create({
   },
   candyValue: { color: COLORS.card, fontSize: 15, fontWeight: '700' },
   candyBaseline: { height: 4, backgroundColor: COLORS.blue, borderRadius: 2 },
+  cardIcon: { width: CARD_ICON_SIZE, height: CARD_ICON_SIZE },
 });

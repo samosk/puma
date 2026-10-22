@@ -14,6 +14,8 @@ const FRIEND_CHALLENGE_COIN_REWARD = 100;
 //const FRIEND_CHALLENGE_XP_REWARD = ska det vara fast eller dynamiskt beroende på typ..?
 // Max ammount of friends allowed
 const MAX_FRIENDS = 99; // 
+// Size of the back arrow (the spacer on the right matches it)
+const HEADER_ICON_SIZE = 34;
 
 // Placeholder för leveluträkning, samma som lovisa
 const XP_PER_LEVEL = 100;
@@ -255,9 +257,8 @@ async function sendChallenge (choice: ChallengeChoice) {
 	<SafeAreaView style={styles.screen} edges={['top']}>
 	  {/*Header*/}
 	  <View style={styles.header}>
-		<Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
-			<Text style={styles.headerIcon}>←</Text>
-		</Pressable>
+		{/* Empty space as wide as the arrow, so the title stays centered */}
+				<View style={styles.headerSpacer} />
 
 		<Text style={styles.headerTitle}>
 			Friends ({rows.length} of {MAX_FRIENDS})
@@ -386,4 +387,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+	headerSpacer: { width: HEADER_ICON_SIZE },
+
 });

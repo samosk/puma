@@ -347,11 +347,6 @@ export default function AnimalScreen() {
 		<SafeAreaView style={styles.screen} edges={['top']}>
 			<Text style={styles.title}>Animals</Text>
 
-			{/* TEST: tillfällig knapp till shoppen. Ta bort när hemskärmens knapp fungerar */}
-			<Pressable style={styles.testShopButton} onPress={() => router.push('/shopScreen')}>
-				<Text style={styles.testShopText}>Open shop (test)</Text>
-			</Pressable>
-
 			{error && <Text style={styles.error}>{error}</Text>}
 
 			{error && <Text style={styles.error}>{error}</Text>}
