@@ -1,3 +1,4 @@
+import { Fonts } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, gap: 20 },
-  error: { fontSize: 14, color: COLORS.error },
+  error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error },
 
   // Header
   header: {
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: COLORS.text },
+  headerTitle: { fontFamily: Fonts.regular, fontSize: 28, fontWeight: '700', color: COLORS.text },
   headerSpacer: { width: HEADER_ICON_SIZE },
 
   // Cards
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTitle: { fontSize: 17, fontWeight: '500', color: COLORS.muted },
+  cardTitle: { fontFamily: Fonts.regular, fontSize: 17, fontWeight: '500', color: COLORS.muted },
   iconCircle: {
     width: 26,
     height: 26,
@@ -465,13 +466,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   averageRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  averageLabel: { fontSize: 14, color: COLORS.muted },
-  averageValue: { fontSize: 24, fontWeight: '700', color: COLORS.text },
+  averageLabel: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.muted },
+  averageValue: { fontFamily: Fonts.regular, fontSize: 24, fontWeight: '700', color: COLORS.text },
 
   // Day labels
   dayLabelsRow: { flexDirection: 'row', marginTop: 4 },
   dayLabelCell: { flex: 1, alignItems: 'center' },
   dayLabel: {
+    fontFamily: Fonts.regular,
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
@@ -495,15 +497,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  streakText: { color: COLORS.streakText, fontSize: 16, fontWeight: '600' },
+  streakText: { fontFamily: Fonts.regular, color: COLORS.streakText, fontSize: 16, fontWeight: '600' },
   progressValueRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
   },
-  stepsValue: { fontSize: 30, fontWeight: '800', color: COLORS.text },
-  stepsLabel: { fontSize: 18, fontWeight: '600', color: COLORS.text },
-  progressPercent: { fontSize: 24, fontWeight: '700', color: COLORS.text },
+  stepsValue: { fontFamily: Fonts.regular, fontSize: 30, fontWeight: '800', color: COLORS.text },
+  stepsLabel: { fontFamily: Fonts.regular, fontSize: 18, fontWeight: '600', color: COLORS.text },
+  progressPercent: { fontFamily: Fonts.regular, fontSize: 24, fontWeight: '700', color: COLORS.text },
   progressTrack: {
     flexDirection: 'row',
     height: PROGRESS_BAR_HEIGHT,
@@ -521,7 +523,7 @@ const styles = StyleSheet.create({
     right: PROGRESS_BAR_HEIGHT / 4,
     bottom: -6, // pushes the cat slightly below the bar, like it's walking along it
   },
-  progressFooter: { fontSize: 14, color: COLORS.muted },
+  progressFooter: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.muted },
 
   // Activity chart
   activityRow: { flexDirection: 'row', marginTop: 2 },
@@ -560,7 +562,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 6,
   },
-  candyValue: { color: COLORS.card, fontSize: 15, fontWeight: '700' },
+  candyValue: { fontFamily: Fonts.regular, color: COLORS.card, fontSize: 15, fontWeight: '700' },
   candyBaseline: { height: 4, backgroundColor: COLORS.blue, borderRadius: 2 },
   cardIcon: { width: CARD_ICON_SIZE, height: CARD_ICON_SIZE },
 });

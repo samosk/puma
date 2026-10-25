@@ -1,7 +1,8 @@
-import { Tabs } from 'expo-router';
 import { CustomTabBar } from '@/components/navigation/custom-tab-bar';
-import { useFonts } from 'expo-font';
 import { Itim_400Regular } from '@expo-google-fonts/itim';
+import { useFonts } from 'expo-font';
+import { Tabs } from 'expo-router';
+
 
 export default function TabLayout() {
   const [fontsLoaded] = useFonts({
@@ -14,7 +15,6 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="index"
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="friendScreen" options={{ title: 'Friends' }} />

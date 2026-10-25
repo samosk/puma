@@ -1,19 +1,19 @@
-
+// TODO: fixa bilder till alla sidor
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
-	ActivityIndicator,
-	Image,
-	type ImageSourcePropType,
-	KeyboardAvoidingView,
-	Platform,
-	Pressable,
-	ScrollView,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
-	useWindowDimensions,
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    useWindowDimensions,
+    type ImageSourcePropType,
 } from 'react-native';
 
 import { useAuth } from '@/lib/auth';
@@ -148,7 +148,7 @@ export default function OnBoardingScreen() {
     const [switchingAccount, setSwitchingAccount] = useState(false);
     const [message, setMessage] = useState('');
 
-    const tutorialScrollRef = useRef<ScrollView>(null);
+    const tutorialScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
     const selectedCat = cats.find(
         (cat) => cat.id === selectedSpeciesId,

@@ -54,7 +54,13 @@ const COLORS = {
 // Exempel när ni har bilderna:
 //   cat_black: require('../../../assets/animals/cat_black.png'),
 // ---------------------------------------------------------------
-const SPRITES: Record<string, number> = {};
+const SPRITES: Record<string, number> = {
+	cat_black: require('../../../assets/cat/cat_head_black.png'),
+	cat_orange: require('../../../assets/cat/cat_head_orange.png'),
+	cat_grey: require('../../../assets/cat/cat_head_tabby.png'),
+	cat_tuxedo: require('../../../assets/cat/cat_head_tuxedo.png'),
+	cat_white: require('../../../assets/cat/cat_head_white.png'),
+};
 const FALLBACK_EMOJI = '🐾';
 
 // ---------------------------------------------------------------

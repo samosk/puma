@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -54,7 +54,19 @@ type Friend = {
 	} | null;
 };
 
-const SPRITES: Record<string, number> = {};
+// Someone who has sent you a friend request
+type FriendRequest = {
+  id: string;
+  username: string;
+};
+
+const SPRITES: Record<string, number> = {
+	cat_black: require('../../../assets/cat/cat_head_black.png'),
+	cat_orange: require('../../../assets/cat/cat_head_orange.png'),
+	cat_grey: require('../../../assets/cat/cat_head_tabby.png'),
+	cat_tuxedo: require('../../../assets/cat/cat_head_tuxedo.png'),
+	cat_white: require('../../../assets/cat/cat_head_white.png'),
+};
 const FALLBACK_EMOJI = '🐾';
 
 function Sprite({ assetKey, size = 56 }: { assetKey?: string; size?: number }) {
@@ -137,6 +149,11 @@ export default function FriendsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [expandedFriendId, setExpandedFriendId] = useState<string | null>(null);
 
+  // Adding friends by username + requests waiting for your answer
+  const [addName, setAddName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
+
   const[challengeTarget, setChallengeTarget] = useState<Friend | null>(null);
   function challengeFriend(friend: Friend) {
 	setChallengeTarget(friend);
@@ -180,6 +197,41 @@ async function sendChallenge (choice: ChallengeChoice) {
 }
 
 
+  // Send a friend request to the username in the text field.
+  // If that person already asked you, you become friends right away.
+  async function addFriend() {
+	const name = addName.trim();
+	if (!name || adding) return;
+
+	setAdding(true);
+	const { data, error } = await supabase.rpc('send_friend_request', { p_username: name });
+	setAdding(false);
+
+	if (error) {
+		Alert.alert('Could not add friend', error.message);
+		return;
+	}
+
+	setAddName('');
+	Keyboard.dismiss();
+	Alert.alert(data === 'accepted' ? `You and ${name} are now friends!` : `Friend request sent to ${name}`);
+	loadRows();
+  }
+
+  // Accept or decline a request someone sent you
+  async function respondToRequest(request: FriendRequest, accept: boolean) {
+	const { error } = await supabase.rpc('respond_friend_request', {
+		p_requester_id: request.id,
+		p_accept: accept,
+	});
+
+	if (error) {
+		Alert.alert('Something went wrong', error.message);
+		return;
+	}
+	loadRows();
+  }
+
   // Fetches the data from Supabase.
   // useCallback just keeps this function stable so useEffect below
   // doesn't re-run it on every render.
@@ -190,9 +242,8 @@ async function sendChallenge (choice: ChallengeChoice) {
 
 	const { data: friendships, error: friendshipsError} = await supabase
 	  .from('friendships')
-	  .select('requester_id, adresser_id')
-	  .or(`requester_id.eq.${userId},adresser_id.eq.${userId}`)
-	  .eq('status', 'accepted');
+	  .select('requester_id, adresser_id, status')
+	  .or(`requester_id.eq.${userId},adresser_id.eq.${userId}`);
 	
 	if (friendshipsError) {
 		setError(friendshipsError.message);
@@ -200,18 +251,27 @@ async function sendChallenge (choice: ChallengeChoice) {
 		return;
 	}
 
-	const friendIds = (friendships ?? []).map((friendship) => friendship.requester_id === userId ? friendship.adresser_id : friendship.requester_id);
+	const friendIds = (friendships ?? [])
+		.filter((friendship) => friendship.status === 'accepted')
+		.map((friendship) => friendship.requester_id === userId ? friendship.adresser_id : friendship.requester_id);
 
-	if (friendIds.length === 0) {
+	// Requests other users have sent to you, waiting for Accept / Decline
+	const requesterIds = (friendships ?? [])
+		.filter((friendship) => friendship.status === 'pending' && friendship.adresser_id === userId)
+		.map((friendship) => friendship.requester_id);
+
+	if (friendIds.length === 0 && requesterIds.length === 0) {
 		setRows([]);
+		setRequests([]);
 		setLoading(false);
 		return;
 	}
 
+	// Usernames for both friends and requesters, in one request
 	const { data: profiles, error: profileError } = await supabase
 	  .from('profiles')
 	  .select('id, username')
-	  .in('id', friendIds);
+	  .in('id', [...friendIds, ...requesterIds]);
 
 	if (profileError) {
 		setError(profileError.message);
@@ -230,7 +290,9 @@ async function sendChallenge (choice: ChallengeChoice) {
 		return;
 	}
 
-	const friends = (profiles ?? []).map((profile) => ({
+	setRequests((profiles ?? []).filter((profile) => requesterIds.includes(profile.id)));
+
+	const friends = (profiles ?? []).filter((profile) => friendIds.includes(profile.id)).map((profile) => ({
 		...profile,
 		animal: animals?.find((animal) => animal.owner_id === profile.id) || null
 	})) as unknown as Friend[];
@@ -271,6 +333,56 @@ async function sendChallenge (choice: ChallengeChoice) {
 		// Each row needs a unique key; most tables have an "id" column
 		keyExtractor={(item) => item.id}
 		contentContainerStyle={styles.list}
+		// Lets the Add button work while the keyboard is open
+		keyboardShouldPersistTaps="handled"
+		// Above the friends: add by username + incoming requests
+		ListHeaderComponent={
+			<View style={styles.listHeader}>
+				<View style={styles.addRow}>
+					<TextInput
+						value={addName}
+						onChangeText={setAddName}
+						placeholder="Add a friend by username"
+						placeholderTextColor="#919191"
+						autoCapitalize="none"
+						autoCorrect={false}
+						returnKeyType="send"
+						onSubmitEditing={addFriend}
+						style={styles.addInput}
+					/>
+					<Pressable
+						style={[styles.addButton, (adding || !addName.trim()) && { opacity: 0.5 }]}
+						disabled={adding || !addName.trim()}
+						onPress={addFriend}
+					>
+						{adding ? (
+							<ActivityIndicator color="#FFFFFF" />
+						) : (
+							<Text style={styles.addButtonText}>Add</Text>
+						)}
+					</Pressable>
+				</View>
+
+				{requests.length > 0 && (
+					<View style={styles.requests}>
+						<Text style={styles.sectionLabel}>Friend requests</Text>
+						{requests.map((request) => (
+							<View key={request.id} style={styles.requestCard}>
+								<Text style={styles.name}>{request.username}</Text>
+								<View style={styles.requestButtons}>
+									<Pressable style={styles.declineButton} onPress={() => respondToRequest(request, false)}>
+										<Text style={styles.declineText}>Decline</Text>
+									</Pressable>
+									<Pressable style={styles.acceptButton} onPress={() => respondToRequest(request, true)}>
+										<Text style={styles.acceptText}>Accept</Text>
+									</Pressable>
+								</View>
+							</View>
+						))}
+					</View>
+				)}
+			</View>
+		}
 		// Pull down on the list to reload the data
 		refreshing={loading}
 		onRefresh={loadRows}
@@ -388,5 +500,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 	headerSpacer: { width: HEADER_ICON_SIZE },
+
+  // Add friend + friend requests
+  listHeader: { gap: 16 },
+  addRow: { flexDirection: 'row', gap: 10 },
+  addInput: {
+	flex: 1,
+	backgroundColor: '#FFFFFF',
+	borderRadius: 20,
+	paddingHorizontal: 16,
+	paddingVertical: 12,
+	fontSize: 16,
+	color: '#2C2C2C',
+  },
+  addButton: {
+	backgroundColor: '#3DCB2A',
+	borderRadius: 20,
+	paddingHorizontal: 20,
+	alignItems: 'center',
+	justifyContent: 'center',
+	minWidth: 72,
+  },
+  addButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  requests: { gap: 8 },
+  sectionLabel: { fontSize: 15, fontWeight: '600', color: '#2C2C2C' },
+  requestCard: {
+	backgroundColor: '#FFFFFF',
+	borderRadius: 20,
+	paddingHorizontal: 18,
+	paddingVertical: 12,
+	flexDirection: 'row',
+	alignItems: 'center',
+	justifyContent: 'space-between',
+  },
+  requestButtons: { flexDirection: 'row', gap: 8 },
+  declineButton: {
+	backgroundColor: '#E6E6E6',
+	borderRadius: 16,
+	paddingHorizontal: 14,
+	paddingVertical: 8,
+  },
+  declineText: { fontSize: 14, color: '#2C2C2C', fontWeight: '600' },
+  acceptButton: {
+	backgroundColor: '#3DCB2A',
+	borderRadius: 16,
+	paddingHorizontal: 14,
+	paddingVertical: 8,
+  },
+  acceptText: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
 
 });

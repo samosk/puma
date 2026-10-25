@@ -1,15 +1,15 @@
 import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
-	ActivityIndicator,
-	ImageBackground,
-	KeyboardAvoidingView,
-	Platform,
-	Pressable,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { Fonts } from '../constants/theme';
 
@@ -138,11 +138,14 @@ export default function AuthScreen() {
     }
 
     return (
-        <ImageBackground
-            source={LOGIN_BACKGROUND}
-            style={styles.background}
-            resizeMode="cover"
-        >
+        <View style={styles.background}>
+            {/* Background picture: fills the whole screen behind everything else */}
+            <Image
+                source={LOGIN_BACKGROUND}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+            />
+
             <KeyboardAvoidingView
                 style={styles.screen}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -251,7 +254,7 @@ export default function AuthScreen() {
                     </Pressable>
                 </View>
             </KeyboardAvoidingView>
-        </ImageBackground>
+        </View>
     );
 }
 
@@ -338,8 +341,7 @@ const styles = StyleSheet.create({
     buttonText: {
 		fontFamily: Fonts.regular,
         color: COLORS.text,
-        fontSize: 27,
-        fontWeight: '900',
+        fontSize: 22,
     },
 
     switchButton: {

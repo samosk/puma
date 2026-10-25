@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, type Href } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,8 +49,11 @@ const TAB_CONFIG = {
 
 export const CUSTOM_TAB_BAR_HEIGHT = 112;
 
-export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
+export function CustomTabBar({ state, descriptors }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
+  // Since SDK 58 the tab bar doesn't reliably get `navigation` from <Tabs>,
+  // so tabs are switched with Expo Router's router instead.
+  const router = useRouter();
 
   return (
     <View style={[styles.container, { height: CUSTOM_TAB_BAR_HEIGHT + insets.bottom }]}>
@@ -67,23 +70,15 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
           const isFocused = state.index === index;
           const { Icon } = config;
 
+          // The route's address: 'index' is the start page '/', the rest
+          // are '/friendScreen', '/mapScreen' and so on. The (tabs) folder
+          // name isn't part of the address.
+          const href = (route.name === 'index' ? '/' : `/${route.name}`) as Href;
+
           const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
+            if (!isFocused) {
+              router.navigate(href);
             }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: 'tabLongPress',
-              target: route.key,
-            });
           };
 
           return (
@@ -95,7 +90,6 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               }
               accessibilityState={isFocused ? { selected: true } : {}}
               hitSlop={8}
-              onLongPress={onLongPress}
               onPress={onPress}
               style={styles.tabButton}>
               {({ pressed }) => (
