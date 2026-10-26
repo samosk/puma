@@ -4,7 +4,6 @@ import {
     DefaultTheme,
     Stack,
     ThemeProvider,
-    useRouter,
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
@@ -13,6 +12,7 @@ import { Pressable, Text, useColorScheme, View } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AuthScreen from '@/components/auth-screen';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { OnboardingContext } from '@/lib/onboarding';
 import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -34,12 +34,12 @@ export default function RootLayout() {
 // the login screen when logged out, and the app or onboarding when logged in.
 function AuthGate() {
     const { session, loading } = useAuth();
-    const router = useRouter();
 
     const [checkingProfile, setCheckingProfile] = useState(false);
     const [profileError, setProfileError] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
     const [checkedUserId, setCheckedUserId] = useState<string | null>(null);
+    const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
     useEffect(() => {
         if (loading || !session) {
@@ -82,13 +82,8 @@ function AuthGate() {
                 return;
             }
 
+            setOnboardingCompleted(data.onboarding_completed);
             setCheckedUserId(userId);
-
-            if (data.onboarding_completed) {
-                router.replace('/(tabs)');
-            } else {
-                router.replace('../onBoardingScreen');
-            }
         }
 
         checkProfile();
@@ -149,11 +144,25 @@ function AuthGate() {
         );
     }
 
-    // Display the app's routes. AuthGate's check above decides the initial route.
+    // Display the app's routes. The guards show the tabs once onboarding is
+    // completed, and the onboarding screen until then.
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="onBoardingScreen" />
-        </Stack>
+        <OnboardingContext.Provider
+            value={{
+                markOnboardingCompleted: () => setOnboardingCompleted(true),
+            }}
+        >
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Protected
+                    guard={onboardingCompleted}
+                    redirectTo="/onBoardingScreen"
+                >
+                    <Stack.Screen name="(tabs)" />
+                </Stack.Protected>
+                <Stack.Protected guard={!onboardingCompleted} redirectTo="/">
+                    <Stack.Screen name="onBoardingScreen" />
+                </Stack.Protected>
+            </Stack>
+        </OnboardingContext.Provider>
     );
 }

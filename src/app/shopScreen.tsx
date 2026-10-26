@@ -74,6 +74,9 @@ const GAP = 10;
 const CANDY_ICON = require('../../assets/images/candy.png');
 const COIN_ICON = require('../../assets/images/coin.png');
 
+// TEMPORÄRT: dölj varor som saknar bild i COSMETIC_SPRITES. Sätt till false för att visa allt igen.
+const ONLY_ITEMS_WITH_IMAGES = true;
+
 
 function CandyIcon({ size = 18 }: { size?: number }) {
  return <Image source={CANDY_ICON} style={{ width: size, height: size }} resizeMode="contain" />;
@@ -241,7 +244,12 @@ export default function ShopScreen() {
      SECTIONS[tab]
        .map((section) => ({
          title: section.title,
-         items: items.filter((item) => section.types.includes(item.type)),
+         items: items.filter(
+           (item) =>
+             section.types.includes(item.type) &&
+             // TEMPORÄRT: visa bara varor som har en riktig bild (inga emoji-rutor)
+             (!ONLY_ITEMS_WITH_IMAGES || COSMETIC_SPRITES[item.asset_key] != null)
+         ),
        }))
        .filter((section) => section.items.length > 0),
    [items, tab]

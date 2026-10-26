@@ -31,6 +31,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// TEMPORÄRT: dölj saker som saknar bild i COSMETIC_SPRITES. Sätt till false för att visa allt igen.
+const ONLY_ITEMS_WITH_IMAGES = true;
+
 
 // ---------------------------------------------------------------
 // LÄGEN OCH KATEGORIER – samma indelning som i shoppen
@@ -282,7 +285,13 @@ export default function WardrobeScreen() {
 
 
  const modeItems = useMemo(
-   () => items.filter((item) => MODE_TYPES[mode].includes(item.type)),
+   () =>
+     items.filter(
+       (item) =>
+         MODE_TYPES[mode].includes(item.type) &&
+         // TEMPORÄRT: visa bara saker som har en riktig bild (inga emoji-rutor)
+         (!ONLY_ITEMS_WITH_IMAGES || COSMETIC_SPRITES[item.assetKey] != null)
+     ),
    [items, mode]
  );
 
