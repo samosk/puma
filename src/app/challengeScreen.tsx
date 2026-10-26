@@ -1,5 +1,7 @@
+import { Fonts } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, ImageSourcePropType, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,12 +19,16 @@ const COLORS = {
   block: '#FFFFFF',
   cardBorder: '#E0E0E0',
   text: '#2C2C2C',
+  icon: '#4A4A4A', // back arrow
   small: '#919191',
   barEmpty: '#E3E3E3',
   barFill: '#5BB318',
   button: '#4195E8',
   error: '#D92D20',
 };
+
+// Size of the back arrow (the spacer on the right matches it)
+const HEADER_ICON_SIZE = 34;
 
 type Metric = 'steps' | 'candies';
 
@@ -251,10 +257,10 @@ const [challengesResult, friendChallengesResult, activityResult	] = await Promis
 		<SafeAreaView style={styles.screen} edges={['top']}>
 		<View style={styles.header}>
 			<Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
-			<Text style={styles.headerIcon}>←</Text>
+			<MaterialCommunityIcons name="arrow-left" size={HEADER_ICON_SIZE} color={COLORS.icon} />
 			</Pressable>
 			<Text style={styles.headerTitle}>Challenges</Text>
-			<View style={{ width: 32 }} />
+			<View style={{ width: HEADER_ICON_SIZE }} />
 		</View>
 
 		<ScrollView
@@ -433,8 +439,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { paddingVertical: 16, paddingBottom: 140, gap: 18 },
-  error: { fontSize: 14, color: COLORS.error },
-  small: { fontSize: 12, color: COLORS.small },
+  error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error },
+  small: { fontFamily: Fonts.regular, fontSize: 12, color: COLORS.small },
 
   // Title
   header: {
@@ -443,8 +449,7 @@ const styles = StyleSheet.create({
 	justifyContent: 'space-between',
 	marginTop: 12,
   },
-  headerIcon: { fontSize: 32, color: COLORS.text, width: 32 },
-  headerTitle: { fontSize: 26, fontWeight: '700', color: COLORS.text },
+  headerTitle: { fontFamily: Fonts.regular, fontSize: 28, fontWeight: '700', color: COLORS.text },
 
   // Blocks (Daily / Weekly / Friends)
   block: {
@@ -458,7 +463,7 @@ const styles = StyleSheet.create({
 	shadowOffset: { width: 0, height: 2 },
   },
   blockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  blockTitle: { fontSize: 15, fontWeight: '600', color: COLORS.small },
+  blockTitle: { fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: COLORS.small },
   blockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   blockIcon: { width: 30, height: 30 },
 
@@ -471,9 +476,9 @@ const styles = StyleSheet.create({
 	gap: 6,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.text },
-  rewardLabel: { fontSize: 13, fontWeight: '600', color: COLORS.text },
-  reward: { fontSize: 13, color: COLORS.small },
+  cardTitle: { fontFamily: Fonts.regular, flex: 1, fontSize: 15, fontWeight: '600', color: COLORS.text },
+  rewardLabel: { fontFamily: Fonts.regular, fontSize: 13, fontWeight: '600', color: COLORS.text },
+  reward: { fontFamily: Fonts.regular, fontSize: 13, color: COLORS.small },
   rewardRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rewardIcon: { width: 18, height: 18 },
 
@@ -497,5 +502,5 @@ const styles = StyleSheet.create({
 	alignItems: 'center',
 	marginTop: 4,
   },
-  buttonText: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
+  buttonText: { fontFamily: Fonts.regular, fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
 });

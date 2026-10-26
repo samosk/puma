@@ -1,3 +1,4 @@
+import { Fonts } from '@/constants/theme';
 import { COSMETIC_SPRITES } from '@/constants/cosmeticSprites';
 import { supabase } from '@/lib/supabase';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -303,18 +304,24 @@ export default function ShopScreen() {
 
      {/* ---------- HEADER ---------- */}
      <View style={styles.header}>
-       <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Go back">
-         <MaterialCommunityIcons name="arrow-left" size={34} color={COLORS.text} />
-       </Pressable>
-
-
-       <View style={[styles.pill, styles.pillRow]}>
-         <CandyIcon size={22} />
-         <Text style={styles.pillText}>{candies}</Text>
+       <View style={styles.titleRow}>
+         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Go back">
+           <MaterialCommunityIcons name="arrow-left" size={34} color={COLORS.text} />
+         </Pressable>
+         <Text style={styles.title}>Shop</Text>
+         <View style={{ width: 34 }} />
        </View>
-       <View style={[styles.pill, styles.pillRow]}>
-         <CoinIcon size={22} />
-         <Text style={styles.pillText}>{coins}</Text>
+
+
+       <View style={styles.currencyRow}>
+         <View style={[styles.pill, styles.pillRow]}>
+           <CandyIcon size={22} />
+           <Text style={styles.pillText}>{candies}</Text>
+         </View>
+         <View style={[styles.pill, styles.pillRow]}>
+           <CoinIcon size={22} />
+           <Text style={styles.pillText}>{coins}</Text>
+         </View>
        </View>
        {/* Filter-knappen från designen är utelämnad tills ni bestämt vad den ska filtrera */}
      </View>
@@ -462,13 +469,14 @@ const styles = StyleSheet.create({
 
  // Header
  header: {
-   flexDirection: 'row',
-   alignItems: 'center',
    gap: 10,
    backgroundColor: COLORS.header,
    paddingHorizontal: SCREEN_PADDING,
    paddingVertical: 12,
  },
+ titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+ title: { fontFamily: Fonts.regular, fontSize: 26, fontWeight: '700', color: COLORS.text },
+ currencyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
  pill: {
    borderWidth: 1,
    borderColor: COLORS.border,
@@ -477,17 +485,17 @@ const styles = StyleSheet.create({
    paddingVertical: 6,
    backgroundColor: '#FFFFFF',
  },
- pillText: { fontSize: 18, fontWeight: '600', color: COLORS.text },
+ pillText: { fontFamily: Fonts.regular, fontSize: 18, fontWeight: '600', color: COLORS.text },
 
 
  // Lista
  scroll: { flex: 1 },
  content: { padding: SCREEN_PADDING, gap: 20 },
  section: { gap: 8 },
- sectionTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text },
+ sectionTitle: { fontFamily: Fonts.regular, fontSize: 20, fontWeight: '700', color: COLORS.text },
  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
- empty: { fontSize: 16, color: COLORS.muted, textAlign: 'center', marginTop: 40 },
- error: { fontSize: 14, color: COLORS.error, marginHorizontal: SCREEN_PADDING, marginVertical: 6 },
+ empty: { fontFamily: Fonts.regular, fontSize: 16, color: COLORS.muted, textAlign: 'center', marginTop: 40 },
+ error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error, marginHorizontal: SCREEN_PADDING, marginVertical: 6 },
 
 
  // Varukort
@@ -501,7 +509,7 @@ const styles = StyleSheet.create({
    gap: 8,
    minHeight: 150,
  },
- itemName: { fontSize: 14, color: COLORS.text, textAlign: 'center', minHeight: 34 },
+ itemName: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.text, textAlign: 'center', minHeight: 34 },
  spritePlaceholder: {
    backgroundColor: '#F0F0F0',
    borderRadius: 10,
@@ -516,7 +524,7 @@ const styles = StyleSheet.create({
    minWidth: 76,
    alignItems: 'center',
  },
- badgeText: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+ badgeText: { fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: COLORS.text },
  badgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
@@ -542,7 +550,7 @@ const styles = StyleSheet.create({
    backgroundColor: '#FFFFFF',
  },
  tabButtonActive: { backgroundColor: COLORS.orange, borderColor: COLORS.orangeBorder },
- tabText: { fontSize: 20, color: COLORS.text },
+ tabText: { fontFamily: Fonts.regular, fontSize: 20, color: COLORS.text },
  tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
 
 
@@ -560,9 +568,9 @@ const styles = StyleSheet.create({
    gap: 16,
    alignItems: 'center',
  },
- modalTitle: { fontSize: 20, color: COLORS.text, textAlign: 'center' },
+ modalTitle: { fontFamily: Fonts.regular, fontSize: 20, color: COLORS.text, textAlign: 'center' },
  modalItem: { alignItems: 'center', gap: 8 },
- modalItemName: { fontSize: 16, color: COLORS.text },
+ modalItemName: { fontFamily: Fonts.regular, fontSize: 16, color: COLORS.text },
  modalButtons: { flexDirection: 'row', gap: 16 },
  noButton: {
    backgroundColor: '#EBEBEB',
@@ -570,7 +578,7 @@ const styles = StyleSheet.create({
    paddingHorizontal: 28,
    paddingVertical: 8,
  },
- noText: { fontSize: 20, color: COLORS.text },
+ noText: { fontFamily: Fonts.regular, fontSize: 20, color: COLORS.text },
  yesButton: {
    backgroundColor: COLORS.orange,
    borderColor: COLORS.orangeBorder,
@@ -579,5 +587,5 @@ const styles = StyleSheet.create({
    paddingHorizontal: 28,
    paddingVertical: 6,
  },
- yesText: { fontSize: 20, color: '#FFFFFF', fontWeight: '600' },
+ yesText: { fontFamily: Fonts.regular, fontSize: 20, color: '#FFFFFF', fontWeight: '600' },
 });

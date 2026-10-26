@@ -1,3 +1,4 @@
+import { Fonts } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -34,9 +35,11 @@ const COLORS = {
 	background: '#E8E8E8',
 	card: '#FFFFFF',
 	border: '#B5B5B5',
-	selected: '#5FA33A',
+	selected: '#3DCB2A',
 	text: '#111111',
 	muted: '#6B6B6B',
+	cardText: '#2C2C2C', // text inside the animal pills (same as friendScreen)
+	cardMuted: '#919191',
 	tag: '#EDEDED',
 	tagText: '#8A8A8A',
 	emptySlot: '#666666',
@@ -132,7 +135,7 @@ function AnimalCard({
 	const xp = animal.xp ?? 0;
 
 	return (
-		<View style={styles.cardWrapper}>
+		<View style={selected && styles.cardWrapperSelected}>
 			{selected && (
 				<View style={styles.selectedTab}>
 					<Text style={styles.selectedTabText}>Selected</Text>
@@ -355,8 +358,6 @@ export default function AnimalScreen() {
 
 			{error && <Text style={styles.error}>{error}</Text>}
 
-			{error && <Text style={styles.error}>{error}</Text>}
-
 			<ScrollView
 				contentContainerStyle={styles.list}
 				refreshControl={
@@ -453,13 +454,13 @@ export default function AnimalScreen() {
 
 // ---------------------------------------------------------------
 // STYLES
-// Handskrivet typsnitt från designen: lägg till fontFamily i
-// title, animalName, small, detailText när ni laddat in fonten.
+// Handskrivet typsnitt från designen (Fonts.regular) på all text.
 // ---------------------------------------------------------------
 const styles = StyleSheet.create({
 	screen: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: 16 },
 	center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 	title: {
+		fontFamily: Fonts.regular,
 		fontSize: 32,
 		fontWeight: '700',
 		color: COLORS.text,
@@ -467,9 +468,9 @@ const styles = StyleSheet.create({
 		marginTop: 12,
 		marginBottom: 8,
 	},
-	list: { paddingVertical: 12, paddingBottom: 140, gap: 10 }, // extra botten för navbaren
-	error: { fontSize: 14, color: COLORS.error, marginVertical: 6 },
-	small: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+	list: { paddingVertical: 12, paddingBottom: 140, gap: 12 }, // extra botten för navbaren
+	error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error, marginVertical: 6 },
+	small: { fontFamily: Fonts.regular, fontSize: 11, color: COLORS.cardMuted, marginTop: 2 },
 
 	testShopButton: {
 	alignSelf: 'center',
@@ -479,22 +480,27 @@ const styles = StyleSheet.create({
 	paddingVertical: 8,
 	marginBottom: 4,
 	},
-	testShopText: { color: '#FFFFFF', fontWeight: '600' },
+	testShopText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontWeight: '600' },
 
 	// Kort
-	cardWrapper: { paddingTop: 14 },
+	// Only the selected card needs room above it for the "Selected" tab
+	cardWrapperSelected: { paddingTop: 14 },
 	card: {
 		backgroundColor: COLORS.card,
-		borderColor: COLORS.border,
-		borderWidth: 1.5,
-		borderRadius: 28,
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		borderColor: 'transparent',
+		borderWidth: 2,
+		borderRadius: 20,
+		paddingHorizontal: 18,
+		paddingVertical: 14,
+		shadowColor: '#000000',
+		shadowOpacity: 0.08,
+		shadowRadius: 1,
+		shadowOffset: { width: 0, height: 2 },
 	},
-	cardSelected: { borderColor: COLORS.selected, borderWidth: 3 },
+	cardSelected: { borderColor: COLORS.selected },
 	selectedTab: {
 		position: 'absolute',
-		top: 0,
+		top: -6, // lifts the tab so its bottom sits on the card's top edge
 		right: 36,
 		backgroundColor: COLORS.selected,
 		borderTopLeftRadius: 12,
@@ -503,23 +509,22 @@ const styles = StyleSheet.create({
 		paddingVertical: 3,
 		zIndex: 1,
 	},
-	selectedTabText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+	selectedTabText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
 	cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
 	cardInfo: { flex: 1 },
 	nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-	animalName: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+	animalName: { fontFamily: Fonts.regular, fontSize: 18, fontWeight: '600', color: COLORS.cardText },
 	levelBadge: {
-		minWidth: 22,
-		height: 22,
-		borderRadius: 6,
+		minWidth: 26,
+		height: 26,
+		borderRadius: 8,
 		borderWidth: 1,
-		borderColor: COLORS.text,
-		backgroundColor: '#F5F5F5',
+		borderColor: COLORS.cardText,
 		alignItems: 'center',
 		justifyContent: 'center',
 		paddingHorizontal: 4,
 	},
-	levelText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+	levelText: { fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: COLORS.cardText },
 	speciesTag: {
 		backgroundColor: COLORS.tag,
 		borderColor: COLORS.border,
@@ -528,7 +533,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 10,
 		paddingVertical: 3,
 	},
-	speciesTagText: { fontSize: 15, color: COLORS.tagText },
+	speciesTagText: { fontFamily: Fonts.regular, fontSize: 15, color: COLORS.tagText },
 	spritePlaceholder: {
 		backgroundColor: COLORS.tag,
 		borderRadius: 10,
@@ -544,35 +549,44 @@ const styles = StyleSheet.create({
 		borderTopColor: COLORS.border,
 		gap: 10,
 	},
-	detailText: { fontSize: 14, color: COLORS.text },
+	detailText: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.cardText },
 	selectButton: {
-		alignSelf: 'flex-start',
-		backgroundColor: COLORS.selected,
-		borderRadius: 14,
-		paddingHorizontal: 16,
-		paddingVertical: 8,
+		alignSelf: 'center',
+		backgroundColor: '#E6E6E6',
+		borderRadius: 24,
+		paddingHorizontal: 22,
+		paddingVertical: 10,
 		marginTop: 4,
+		shadowColor: '#000000',
+		shadowOpacity: 0.12,
+		shadowRadius: 1,
+		shadowOffset: { width: 0, height: 2 },
 	},
-	selectButtonText: { color: '#FFFFFF', fontWeight: '600' },
+	selectButtonText: { fontFamily: Fonts.regular, fontSize: 16, color: COLORS.cardText, fontWeight: '600' },
 
 	// Tom plats
+	// Same outline as the animal cards: radius 20, 2px border, shadow
 	emptyRing: {
-		backgroundColor: COLORS.emptyRing,
-		borderRadius: 40,
-		padding: 6,
-		marginTop: 14,
+		borderRadius: 20,
+		borderWidth: 2,
+		borderColor: 'transparent',
+		shadowColor: '#000000',
+		shadowOpacity: 0.08,
+		shadowRadius: 1,
+		shadowOffset: { width: 0, height: 2 },
 	},
 	emptySlot: {
 		backgroundColor: COLORS.emptySlot,
-		borderRadius: 34,
-		paddingHorizontal: 28,
-		paddingVertical: 20,
+		borderRadius: 18, // 20 minus the 2px border, so the corners line up
+		paddingHorizontal: 18,
+		paddingVertical: 14,
+		minHeight: 84, // same height as an animal card (56px sprite + padding)
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
 	},
-	emptyText: { color: '#FFFFFF', fontSize: 18 },
-	plus: { color: '#FFFFFF', fontSize: 28, lineHeight: 30 },
+	emptyText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 18 },
+	plus: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 28, lineHeight: 30 },
 
 	// Popup
 	modalBackdrop: {
@@ -587,7 +601,7 @@ const styles = StyleSheet.create({
 		padding: 20,
 		gap: 12,
 	},
-	modalTitle: { fontSize: 22, fontWeight: '700', color: COLORS.text },
+	modalTitle: { fontFamily: Fonts.regular, fontSize: 22, fontWeight: '700', color: COLORS.text },
 	speciesScroll: { maxHeight: 240 },
 	speciesRow: {
 		flexDirection: 'row',
@@ -599,25 +613,26 @@ const styles = StyleSheet.create({
 		padding: 10,
 	},
 	speciesRowActive: { borderColor: COLORS.selected, borderWidth: 3 },
-	speciesName: { flex: 1, fontSize: 16, color: COLORS.text },
-	price: { fontSize: 14, color: COLORS.muted },
+	speciesName: { flex: 1, fontFamily: Fonts.regular, fontSize: 16, color: COLORS.text },
+	price: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.muted },
 	input: {
 		borderWidth: 1.5,
 		borderColor: COLORS.border,
 		borderRadius: 14,
 		paddingHorizontal: 14,
 		paddingVertical: 10,
+		fontFamily: Fonts.regular,
 		fontSize: 16,
 		color: COLORS.text,
 	},
 	modalButtons: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
 	cancelButton: { paddingHorizontal: 16, paddingVertical: 10 },
-	cancelText: { color: COLORS.muted, fontSize: 16 },
+	cancelText: { fontFamily: Fonts.regular, color: COLORS.muted, fontSize: 16 },
 	buyButton: {
 		backgroundColor: COLORS.accent,
 		borderRadius: 14,
 		paddingHorizontal: 18,
 		paddingVertical: 10,
 	},
-	buyText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+	buyText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });

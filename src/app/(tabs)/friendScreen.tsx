@@ -1,4 +1,5 @@
 import ChallengeFriendPopup, { ChallengeChoice } from '@/components/challengeFriendPopup';
+import { Fonts } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
@@ -432,9 +433,9 @@ function formatValue(value: unknown): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#EDEDED', paddingHorizontal: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: '#2c2c2c', marginTop: 16 },
-  muted: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
-  error: { fontSize: 14, color: COLORS.error },
+  title: { fontFamily: Fonts.regular, fontSize: 28, fontWeight: '700', color: '#2c2c2c', marginTop: 16 },
+  muted: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.muted, marginTop: 4 },
+  error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error },
   list: { paddingVertical: 16, gap: 12 },
 
   header: {
@@ -443,8 +444,8 @@ const styles = StyleSheet.create({
 	justifyContent: 'space-between',
 	marginTop: 12,
   },
-  headerIcon: {fontSize: 32, color: '#2c2c2c', width: 32},
-  headerTitle: {fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
+  headerIcon: {fontFamily: Fonts.regular, fontSize: 32, color: '#2c2c2c', width: 32},
+  headerTitle: {fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
 
   card: {
 	backgroundColor: '#FFFFFF',
@@ -461,8 +462,8 @@ const styles = StyleSheet.create({
   cardExpanded: {borderColor: '#3DCB2A'},
   row: {flexDirection: 'row', alignItems: 'center', gap: 14},
   info: {flex: 1},
-  name: {fontSize: 18, fontWeight: '600', color: '#2C2C2C'},
-  small: {fontSize: 11, color: '#919191', marginTop: 2},
+  name: {fontFamily: Fonts.regular, fontSize: 18, fontWeight: '600', color: '#2C2C2C'},
+  small: {fontFamily: Fonts.regular, fontSize: 11, color: '#919191', marginTop: 2},
 
   right: {alignSelf: 'stretch', alignItems: 'flex-end', justifyContent: 'space-between'},
   levelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
 	justifyContent: 'center',
 	paddingHorizontal: 4,
   },
-  levelText: {fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
+  levelText: {fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: '#2C2C2C'},
 
   challengeButton: {
 	alignSelf: 'center',
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
 	shadowRadius: 1,
 	shadowOffset: {width: 0, height: 2},
   },
-  challengeButtonText: { fontSize: 16, color: '#2C2C2C', fontWeight: '600' },
+  challengeButtonText: { fontFamily: Fonts.regular, fontSize: 16, color: '#2C2C2C', fontWeight: '600' },
 
   spritePlaceholder: {
     backgroundColor: COLORS.tag,
@@ -510,6 +511,7 @@ const styles = StyleSheet.create({
 	borderRadius: 20,
 	paddingHorizontal: 16,
 	paddingVertical: 12,
+	fontFamily: Fonts.regular,
 	fontSize: 16,
 	color: '#2C2C2C',
   },
@@ -521,9 +523,9 @@ const styles = StyleSheet.create({
 	justifyContent: 'center',
 	minWidth: 72,
   },
-  addButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  addButtonText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   requests: { gap: 8 },
-  sectionLabel: { fontSize: 15, fontWeight: '600', color: '#2C2C2C' },
+  sectionLabel: { fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: '#2C2C2C' },
   requestCard: {
 	backgroundColor: '#FFFFFF',
 	borderRadius: 20,
@@ -540,13 +542,13 @@ const styles = StyleSheet.create({
 	paddingHorizontal: 14,
 	paddingVertical: 8,
   },
-  declineText: { fontSize: 14, color: '#2C2C2C', fontWeight: '600' },
+  declineText: { fontFamily: Fonts.regular, fontSize: 14, color: '#2C2C2C', fontWeight: '600' },
   acceptButton: {
 	backgroundColor: '#3DCB2A',
 	borderRadius: 16,
 	paddingHorizontal: 14,
 	paddingVertical: 8,
   },
-  acceptText: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
+  acceptText: { fontFamily: Fonts.regular, fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
 
 });

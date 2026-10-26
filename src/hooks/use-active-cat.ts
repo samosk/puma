@@ -6,6 +6,12 @@ import {
   type CatAppearance,
   type CatBaseKey,
 } from '@/components/cat/cat-assets';
+import {
+  buildHomeAppearance,
+  isHomeSlotType,
+  type HomeAppearance,
+  type HomeSlotType,
+} from '@/components/home/home-assets';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from 'expo-router';
@@ -16,6 +22,8 @@ export type ActiveCat = {
   name: string;
   xp: number;
   appearance: CatAppearance;
+  // The cat's room, built from the interior items equipped on it
+  home: HomeAppearance;
 };
 
 type UseActiveCatResult = {
@@ -111,13 +119,17 @@ export function useActiveCat(): UseActiveCatResult {
       const assetKey = animal.species?.asset_key;
       const base = isCatBaseKey(assetKey) ? assetKey : 'cat_black';
 
-      // What the cat is wearing, per slot (same as the wardrobe screen).
-      // Room items have other types, so they are simply ignored here.
+      // What the cat is wearing, and what is placed in its room, per slot
+      // (same as the wardrobe screen).
       const wornBySlot: Partial<Record<'hat' | 'neck' | 'body', string>> = {};
+      const roomBySlot: Partial<Record<HomeSlotType, string>> = {};
       for (const item of animal.user_cosmetics ?? []) {
         const cosmetic = item.cosmetics;
-        if (cosmetic && (cosmetic.type === 'hat' || cosmetic.type === 'neck' || cosmetic.type === 'body')) {
+        if (!cosmetic) continue;
+        if (cosmetic.type === 'hat' || cosmetic.type === 'neck' || cosmetic.type === 'body') {
           wornBySlot[cosmetic.type] = cosmetic.asset_key;
+        } else if (isHomeSlotType(cosmetic.type)) {
+          roomBySlot[cosmetic.type] = cosmetic.asset_key;
         }
       }
 
@@ -133,6 +145,7 @@ export function useActiveCat(): UseActiveCatResult {
           acc: pick(ACC_ASSETS, wornBySlot.neck),
           body: pick(BODY_ASSETS, wornBySlot.body),
         } as CatAppearance,
+        home: buildHomeAppearance(roomBySlot),
       });
 
       if (assetKey && !isCatBaseKey(assetKey)) {

@@ -16,10 +16,29 @@
 
 
 import { ACC_ASSETS, BODY_ASSETS, HAT_ASSETS } from '@/components/cat/cat-assets';
+import {
+ FLOOR_ASSETS,
+ HOME_1_ASSETS,
+ HOME_2_ASSETS,
+ HOME_3_ASSETS,
+ HOME_4_ASSETS,
+ ORNAMENT_1_ASSETS,
+ ORNAMENT_2_ASSETS,
+ WALL_ASSETS,
+} from '@/components/home/home-assets';
 
 
 export const COSMETIC_SPRITES: Record<string, number> = {
  ...BODY_ASSETS,
  ...ACC_ASSETS,
  ...HAT_ASSETS,
+ // Interiör: samma bilder som rummet på hemskärmen ritar
+ ...WALL_ASSETS,
+ ...FLOOR_ASSETS,
+ ...ORNAMENT_1_ASSETS,
+ ...ORNAMENT_2_ASSETS,
+ ...HOME_1_ASSETS,
+ ...HOME_2_ASSETS,
+ ...HOME_3_ASSETS,
+ ...HOME_4_ASSETS,
 };
