@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { Fonts } from '@/constants/theme';
+
 import { MoodIcon } from './MoodIcon';
 
 const ARC_RADIUS = 55;
@@ -143,6 +145,7 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   animalName: {
+    fontFamily: Fonts.regular,
     color: '#111111',
     fontSize: 30,
     fontWeight: '700',
@@ -154,6 +157,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   levelLabel: {
+    fontFamily: Fonts.regular,
     color: '#111111',
     fontSize: 21,
     fontWeight: '700',
@@ -171,6 +175,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   levelNumber: {
+    fontFamily: Fonts.regular,
     color: '#111111',
     fontSize: 23,
     fontWeight: '800',
@@ -207,6 +212,7 @@ const styles = StyleSheet.create({
     ],
   },
   moodLabel: {
+    fontFamily: Fonts.regular,
     position: 'absolute',
     bottom: 9,
     color: '#111111',

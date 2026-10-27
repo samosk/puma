@@ -1,16 +1,18 @@
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { Image } from 'expo-image';
+import { useEffect, useRef, useState } from 'react';
 import {
-	ActivityIndicator,
-	ImageBackground,
-	KeyboardAvoidingView,
-	Platform,
-	Pressable,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
+    ActivityIndicator,
+    Animated,
+    Keyboard,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '../constants/theme';
 
 // Match the onboarding screen styling
@@ -22,12 +24,29 @@ const COLORS = {
     muted: '#737B89',
     accent: '#6685D8',
     error: '#C74646',
+    bottomBar: '#F2F3F5',
 };
 
-const LOGIN_BACKGROUND = require('../../assets/images/BackgroundLogin.png');
+const LOGIN_BACKGROUND = require('../../assets/images/onboarding/Onboarding_background.png');
 
 // 3–20 characters: lowercase letters, numbers and underscores
 const USERNAME_RULE = /^[a-z0-9_]{3,20}$/;
+
+// The header is placed from the top of the safe area (below the notch or
+// Dynamic Island) and the form from the bottom (above the home indicator), so
+// both sit in the same spot on every iPhone. The picture fills the space between.
+// Tuned to match the previous layout on an iPhone 13.
+const HEADER_TOP_OFFSET = 10;
+const FORM_BOTTOM_OFFSET = 24;
+
+// Inner padding of the form; the first field starts this far below its top.
+const CARD_PADDING = 20;
+
+// Gray space between the top of the bottom bar and the first field.
+const BAR_TOP_PADDING = 20;
+
+// Space kept between the bottom of the form and the top of the keyboard.
+const KEYBOARD_GAP = 16;
 
 export default function AuthScreen() {
     const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
@@ -41,6 +60,65 @@ export default function AuthScreen() {
     } | null>(null);
 
     const isSignUp = mode === 'signUp';
+
+    const insets = useSafeAreaInsets();
+
+    // Where the gray bottom bar starts: just above the first field (email when
+    // logging in, username when registering). The form grows upward from the
+    // bottom, so this follows the form's top edge.
+    const [cardY, setCardY] = useState<number | null>(null);
+    const barTop =
+        cardY === null ? null : cardY + CARD_PADDING - BAR_TOP_PADDING;
+    // The picture keeps the login screen's height in both modes; when
+    // registering, the bar simply slides up over its bottom edge.
+    const [imageHeight, setImageHeight] = useState<number | null>(null);
+
+    function handleCardLayout(y: number, height: number) {
+        setCardY(y);
+        if (!isSignUp) {
+            setImageHeight(
+                (current) => current ?? y + CARD_PADDING - BAR_TOP_PADDING
+            );
+        }
+        formBottom.current = y + height;
+    }
+
+    // When the keyboard opens, slide the whole screen (picture, bar and form)
+    // up together, just enough for the form to clear the keyboard. This keeps
+    // the fields on the gray bar instead of pushing them over the picture.
+    // The form's bottom is the same in both modes, so one value works for both.
+    // The lift is a transform, so it doesn't change the measured layout.
+    const formBottom = useRef(0);
+    const [lift] = useState(() => new Animated.Value(0));
+
+    useEffect(() => {
+        const showEvent =
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent =
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        function slideTo(value: number, duration?: number) {
+            Animated.timing(lift, {
+                toValue: value,
+                duration: duration || 250,
+                useNativeDriver: true,
+            }).start();
+        }
+
+        const showSub = Keyboard.addListener(showEvent, (e) => {
+            const overlap =
+                formBottom.current + KEYBOARD_GAP - e.endCoordinates.screenY;
+            slideTo(-Math.max(0, overlap), e.duration);
+        });
+        const hideSub = Keyboard.addListener(hideEvent, (e) => {
+            slideTo(0, e?.duration);
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, [lift]);
 
     async function handleSubmit() {
         setMessage(null);
@@ -138,17 +216,39 @@ export default function AuthScreen() {
     }
 
     return (
-        <ImageBackground
-            source={LOGIN_BACKGROUND}
-            style={styles.background}
-            resizeMode="cover"
-        >
-            <KeyboardAvoidingView
-                style={styles.screen}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <View style={styles.background}>
+          <Animated.View
+              style={[styles.background, { transform: [{ translateY: lift }] }]}
+          >
+            {/* Background picture: fixed height, doesn't move between modes */}
+            <Image
+                source={LOGIN_BACKGROUND}
+                style={
+                    imageHeight === null
+                        ? StyleSheet.absoluteFill
+                        : [styles.backgroundImage, { height: imageHeight }]
+                }
+                contentFit="cover"
+            />
+
+            {/* Gray bar from the first field down, drawn on top of the picture */}
+            {barTop !== null && (
+                <View style={[styles.bottomBar, { top: barTop }]} />
+            )}
+
+            <View
+                style={[
+                    styles.screen,
+                    { paddingBottom: insets.bottom + FORM_BOTTOM_OFFSET },
+                ]}
             >
 
-			<View style={styles.headerBox}>
+			<View
+				style={[
+					styles.headerBox,
+					{ top: insets.top + HEADER_TOP_OFFSET },
+				]}
+			>
 				<Text style={styles.title}>
 					{mode === 'signIn' ? 'Log in' : 'Create account'}
 				</Text>
@@ -160,7 +260,13 @@ export default function AuthScreen() {
 				</Text>
 			</View>
 
-                <View style={styles.card}>
+                <View
+                    style={styles.card}
+                    onLayout={(e) => {
+                        const { y, height } = e.nativeEvent.layout;
+                        handleCardLayout(y, height);
+                    }}
+                >
                     {isSignUp && (
                         <TextInput
                             style={styles.input}
@@ -250,27 +356,40 @@ export default function AuthScreen() {
                         </Text>
                     </Pressable>
                 </View>
-            </KeyboardAvoidingView>
-        </ImageBackground>
+            </View>
+          </Animated.View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     background: {
         flex: 1,
+        backgroundColor: COLORS.bottomBar,
+    },
+    backgroundImage: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+    },
+    bottomBar: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: COLORS.bottomBar,
     },
 	screen: {
 		flex: 1,
-		justifyContent: 'center',
+		justifyContent: 'flex-end',
 		paddingHorizontal: 24,
-		paddingVertical: 30,
-		paddingTop: 380,
 	},
     card: {
         width: '100%',
         alignSelf: 'center',
         gap: 12,
-        padding: 20,
+        padding: CARD_PADDING,
         borderRadius: 24,
     },
 
@@ -338,8 +457,7 @@ const styles = StyleSheet.create({
     buttonText: {
 		fontFamily: Fonts.regular,
         color: COLORS.text,
-        fontSize: 27,
-        fontWeight: '900',
+        fontSize: 22,
     },
 
     switchButton: {
@@ -353,8 +471,9 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 	headerBox: {
+		position: 'absolute',
+		left: 0,
+		right: 0,
 		alignItems: 'center',
-		marginBottom: 8,
-		transform: [{ translateY: -330 }],
 	},
 });

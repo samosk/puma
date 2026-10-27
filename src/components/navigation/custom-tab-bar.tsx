@@ -1,7 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, type Href } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Fonts } from '@/constants/theme';
 
 import { AnimalsIcon } from './icons/animals-icon';
 import { FriendsIcon } from './icons/friends-icon';
@@ -49,8 +51,11 @@ const TAB_CONFIG = {
 
 export const CUSTOM_TAB_BAR_HEIGHT = 112;
 
-export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
+export function CustomTabBar({ state, descriptors }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
+  // Since SDK 58 the tab bar doesn't reliably get `navigation` from <Tabs>,
+  // so tabs are switched with Expo Router's router instead.
+  const router = useRouter();
 
   return (
     <View style={[styles.container, { height: CUSTOM_TAB_BAR_HEIGHT + insets.bottom }]}>
@@ -67,23 +72,15 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
           const isFocused = state.index === index;
           const { Icon } = config;
 
+          // The route's address: 'index' is the start page '/', the rest
+          // are '/friendScreen', '/mapScreen' and so on. The (tabs) folder
+          // name isn't part of the address.
+          const href = (route.name === 'index' ? '/' : `/${route.name}`) as Href;
+
           const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
+            if (!isFocused) {
+              router.navigate(href);
             }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: 'tabLongPress',
-              target: route.key,
-            });
           };
 
           return (
@@ -95,7 +92,6 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               }
               accessibilityState={isFocused ? { selected: true } : {}}
               hitSlop={8}
-              onLongPress={onLongPress}
               onPress={onPress}
               style={styles.tabButton}>
               {({ pressed }) => (
@@ -116,9 +112,21 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
                     <Icon width={config.iconSize} height={config.iconSize} />
                   </View>
 
-                  <Text style={[styles.label, isFocused && styles.focusedLabel]}>
-                    {config.label}
-                  </Text>
+                  <View style={styles.labelWrapper}>
+                    <Text style={[styles.label, isFocused && styles.focusedLabel]}>
+                      {config.label}
+                    </Text>
+                    {/* Itim only ships a regular weight, so the focused label is
+                        drawn twice with a slight horizontal offset to thicken it. */}
+                    {isFocused && (
+                      <Text
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        style={[styles.label, styles.focusedLabel, styles.boldOverlay]}>
+                        {config.label}
+                      </Text>
+                    )}
+                  </View>
                 </>
               )}
             </Pressable>
@@ -182,14 +190,20 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  label: {
+  labelWrapper: {
     marginTop: 6,
+  },
+  label: {
+    fontFamily: Fonts.regular,
     color: '#4A4A4A',
     fontSize: 15,
-    fontWeight: '500',
   },
   focusedLabel: {
     color: '#202020',
-    fontWeight: '700',
+  },
+  boldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0.6,
   },
 });

@@ -1,22 +1,22 @@
-
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+// TODO: fixa bilder till alla sidor
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
-	ActivityIndicator,
-	Image,
-	type ImageSourcePropType,
-	KeyboardAvoidingView,
-	Platform,
-	Pressable,
-	ScrollView,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
-	useWindowDimensions,
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    useWindowDimensions,
+    type ImageSourcePropType,
 } from 'react-native';
 
 import { useAuth } from '@/lib/auth';
+import { useOnboarding } from '@/lib/onboarding';
 import { supabase } from '@/lib/supabase';
 import { Fonts } from '../constants/theme';
 import { completeOnBoarding } from '../functions/completeOnBoarding';
@@ -46,8 +46,16 @@ const ITEM_SPRITES = {
 };
 
 const TUTORIAL_PAGES = {
-	page1: require('../../assets/images/TutorialPage1.png'),
-    page2: require('../../assets/images/TutorialPage2.png'),
+    bottomMenu: require('../../assets/images/onboarding/bottom-menu.png'),
+    topMenu: require('../../assets/images/onboarding/top-menu.png'),
+    map: require('../../assets/images/onboarding/map.png'),
+    animals: require('../../assets/images/onboarding/animals.png'),
+    shop: require('../../assets/images/onboarding/shop.png'),
+    wardrobe: require('../../assets/images/onboarding/wardrobe.png'),
+    friends: require('../../assets/images/onboarding/friends.png'),
+    stats: require('../../assets/images/onboarding/stats.png'),
+    challenges: require('../../assets/images/onboarding/challenges.png'),
+    settings: require('../../assets/images/onboarding/settings.png'),
 };
 
 type Species = {
@@ -62,70 +70,70 @@ const TUTORIAL_SCREENSHOTS = [
         title: 'Bottom menu',
         description:
             'The bottom menu holds navigation to; Home, Map, your Friends and your Animals',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.bottomMenu,
     },
 	{
         id: 'top-menu',
         title: 'Top menu',
         description:
             'The top menu holds navigation to your; Stats, Challenges, Settings, Shop, Wardrbobe, Cat state and the amount of Candies and Coins you have collected while using the app.',
-        image: TUTORIAL_PAGES.page2,
+        image: TUTORIAL_PAGES.topMenu,
     },
     {
         id: 'Map',
         title: 'Map',
         description:
             'To collect Candies you have to walk close enough to a candy on the map. To collect, you click on the candy and then click "Collect" If the button instead says "Too far away", you have to walk closer.',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.map,
     },
     {
         id: 'Animals',
         title: 'Animals',
         description:
             'You can own multiple cats apart from the starter cat. To buy a new you click "Empty +", and to select a cat from already owned, you click on the "cat card" and then "Select cat".',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.animals,
     },
 	{
         id: 'Shop',
         title: 'Shop',
         description:
             'The shop is where you can spend your collected candies and coins. The shops offers new items for your room and animals.',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.shop,
     },
 	{
         id: 'Wardrobe',
         title: 'Wardrobe',
         description:
             'Here is where you select clothing, furniture and decoration to you room and animal. Only owned items will be shown. ',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.wardrobe,
     },
 	{
         id: 'Friends',
         title: 'Friends',
         description:
             'To add a new friend you click "Add new friend". You can also challenge a friend by clicking on the "friend card" and then "Challenge". The "friend cards" shows the friends name, their xp level, age and level of their animal.',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.friends,
     },
 	{
         id: 'Stats',
         title: 'Stats',
         description:
             'This is where your all time statistics is shown as well as your daily steps and step-goal. The personal step-goal is pre-set to 5000 steps/day but can be changed in settings. ',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.stats,
     },
 	{
         id: 'Challenges',
         title: 'Challenges',
         description:
             'This is where the daily, weekly and personal challenges are shown. Daily and weekly are always activated and will reward you with candies and coins instantly when reached.',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.challenges,
     },
 	{
         id: 'Settings',
         title: 'Settings',
         description:
             'This is settings...',
-        image: TUTORIAL_PAGES.page1,
+        image: TUTORIAL_PAGES.settings,
     },
 ];
 
@@ -134,8 +142,8 @@ const LAST_TUTORIAL_STEP = FIRST_TUTORIAL_STEP + TUTORIAL_SCREENSHOTS.length - 1
 
 
 export default function OnBoardingScreen() {
-    const router = useRouter();
     const { session } = useAuth();
+    const { markOnboardingCompleted } = useOnboarding();
     const { width: screenWidth } = useWindowDimensions();
 
     const [step, setStep] = useState(0);
@@ -148,7 +156,7 @@ export default function OnBoardingScreen() {
     const [switchingAccount, setSwitchingAccount] = useState(false);
     const [message, setMessage] = useState('');
 
-    const tutorialScrollRef = useRef<ScrollView>(null);
+    const tutorialScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
     const selectedCat = cats.find(
         (cat) => cat.id === selectedSpeciesId,
@@ -293,7 +301,7 @@ export default function OnBoardingScreen() {
                 speciesId: selectedCat.id,
             });
 
-            router.replace('/(tabs)');
+            markOnboardingCompleted();
         } catch (error) {
             console.error('Onboarding failed:', error);
 

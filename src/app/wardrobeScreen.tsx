@@ -1,5 +1,18 @@
-import { ACC_ASSETS, BODY_ASSETS, CAT_ASSETS, HAT_ASSETS } from '@/components/cat/cat-assets';
+import { Fonts } from '@/constants/theme';
+import {
+  ACC_ASSETS,
+  BODY_ASSETS,
+  CAT_ASSETS,
+  HAT_ASSETS,
+  type CatAppearance,
+} from '@/components/cat/cat-assets';
 import { CatAvatar } from '@/components/cat/CatAvatar';
+import { HomeScene } from '@/components/home/HomeScene';
+import {
+  buildHomeAppearance,
+  isHomeSlotType,
+  type HomeSlotType,
+} from '@/components/home/home-assets';
 import { COSMETIC_SPRITES } from '@/constants/cosmeticSprites';
 import { supabase } from '@/lib/supabase';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -18,25 +31,45 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// TEMPORÄRT: dölj saker som saknar bild i COSMETIC_SPRITES. Sätt till false för att visa allt igen.
+const ONLY_ITEMS_WITH_IMAGES = true;
+
 
 // ---------------------------------------------------------------
-// PLATSER – vad man kan ta på sig
+// LÄGEN OCH KATEGORIER – samma indelning som i shoppen
+// Kategorierna bygger på cosmetics.type i databasen. Varje typ är en
+// plats: bara en sak per typ kan sitta på djuret / stå i rummet.
 // ---------------------------------------------------------------
+type Mode = 'clothing' | 'interior';
 type SlotKey = 'hat' | 'neck' | 'body';
 
 
-const SLOTS: { key: SlotKey; label: string }[] = [
- { key: 'hat', label: 'Hats' },
- { key: 'neck', label: 'Accessories' },
- { key: 'body', label: 'Body' },
-];
+type Category = { key: string; label: string; types: string[] };
 
 
-// Flikarna högst upp: "All" först, sedan en per plats
-type TabKey = 'all' | SlotKey;
+const CATEGORIES: Record<Mode, Category[]> = {
+ clothing: [
+   { key: 'hat', label: 'Hats', types: ['hat'] },
+   { key: 'neck', label: 'Accessories', types: ['neck'] },
+   { key: 'body', label: 'Body', types: ['body'] },
+ ],
+ interior: [
+   { key: 'furniture', label: 'Furniture', types: ['home_1', 'home_2', 'home_3', 'home_4'] },
+   { key: 'ornaments', label: 'Ornaments', types: ['ornament_1', 'ornament_2'] },
+   { key: 'walls', label: 'Walls & floor', types: ['wall', 'floor'] },
+ ],
+};
 
 
-const TABS: { key: TabKey; label: string }[] = [{ key: 'all', label: 'All' }, ...SLOTS];
+// Alla typer som hör till ett läge
+const MODE_TYPES: Record<Mode, string[]> = {
+ clothing: CATEGORIES.clothing.flatMap((category) => category.types),
+ interior: CATEGORIES.interior.flatMap((category) => category.types),
+};
+
+
+// Flikarna högst upp: "All" först, sedan en per kategori
+const ALL_TAB = 'all';
 
 
 // ---------------------------------------------------------------
@@ -52,6 +85,8 @@ const COLORS = {
  selected: '#5FA33A',
  empty: '#D9D9D9',
  accent: '#DD3CC4',
+ orange: '#EBA843',
+ orangeBorder: '#D8942B',
  error: '#D92D20',
 };
 
@@ -113,11 +148,13 @@ export default function WardrobeScreen() {
  const { width } = useWindowDimensions();
  const cellSize = (width - SCREEN_PADDING * 2 - GAP * 2) / 3; // 3 kolumner
  const avatarSize = Math.min(width * 0.62, 260);
+ const roomSize = Math.min(width - SCREEN_PADDING * 2, 420);
 
 
  const [animal, setAnimal] = useState<ActiveAnimal | null>(null);
  const [items, setItems] = useState<OwnedItem[]>([]);
- const [tab, setTab] = useState<TabKey>('all');
+ const [mode, setMode] = useState<Mode>('clothing');
+ const [tab, setTab] = useState<string>(ALL_TAB);
 
 
  const [loading, setLoading] = useState(true);
@@ -169,7 +206,7 @@ export default function WardrobeScreen() {
    }
 
 
-   // Behåll bara kläder (sakerna som passar in i någon plats)
+   // Behåll bara kläder och interiör (sakerna som passar in i någon plats)
    const rows = (itemsRes.data ?? []) as unknown as {
      cosmetic_id: string;
      equipped_animal_id: string | null;
@@ -178,7 +215,12 @@ export default function WardrobeScreen() {
 
 
    const owned: OwnedItem[] = rows
-     .filter((row) => row.cosmetics && SLOTS.some((slot) => slot.key === row.cosmetics!.type))
+     .filter(
+       (row) =>
+         row.cosmetics &&
+         (MODE_TYPES.clothing.includes(row.cosmetics.type) ||
+           MODE_TYPES.interior.includes(row.cosmetics.type))
+     )
      .map((row) => ({
        cosmeticId: row.cosmetic_id,
        name: row.cosmetics!.name,
@@ -206,7 +248,7 @@ export default function WardrobeScreen() {
 
 
  // -------------------------------------------------------------
- // Vad djuret har på sig just nu, per plats
+ // Vad djuret har på sig / har i rummet just nu, per plats
  // -------------------------------------------------------------
  const wornBySlot = useMemo(() => {
    const map: Partial<Record<SlotKey, OwnedItem>> = {};
@@ -220,13 +262,50 @@ export default function WardrobeScreen() {
  }, [items, animal]);
 
 
+ const home = useMemo(() => {
+   const assetKeyByType: Partial<Record<HomeSlotType, string>> = {};
+   if (animal) {
+     for (const item of items) {
+       if (item.equippedAnimalId === animal.id && isHomeSlotType(item.type)) {
+         assetKeyByType[item.type] = item.assetKey;
+       }
+     }
+   }
+   return buildHomeAppearance(assetKeyByType);
+ }, [items, animal]);
+
+
  // -------------------------------------------------------------
- // Det som visas i rutnätet: allt, eller bara vald typ
+ // Det som visas i rutnätet: allt i läget, eller bara vald kategori
  // -------------------------------------------------------------
- const visibleItems = useMemo(
-   () => (tab === 'all' ? items : items.filter((item) => item.type === tab)),
-   [items, tab]
+ const tabs = useMemo(
+   () => [{ key: ALL_TAB, label: 'All', types: MODE_TYPES[mode] }, ...CATEGORIES[mode]],
+   [mode]
  );
+
+
+ const modeItems = useMemo(
+   () =>
+     items.filter(
+       (item) =>
+         MODE_TYPES[mode].includes(item.type) &&
+         // TEMPORÄRT: visa bara saker som har en riktig bild (inga emoji-rutor)
+         (!ONLY_ITEMS_WITH_IMAGES || COSMETIC_SPRITES[item.assetKey] != null)
+     ),
+   [items, mode]
+ );
+
+
+ const visibleItems = useMemo(() => {
+   const category = tabs.find((t) => t.key === tab) ?? tabs[0];
+   return modeItems.filter((item) => category.types.includes(item.type));
+ }, [modeItems, tabs, tab]);
+
+
+ function switchMode(next: Mode) {
+   setMode(next);
+   setTab(ALL_TAB);
+ }
 
 
  // -------------------------------------------------------------
@@ -263,6 +342,17 @@ export default function WardrobeScreen() {
  // -------------------------------------------------------------
  // Rendering
  // -------------------------------------------------------------
+ const catAppearance: CatAppearance | null = animal
+   ? {
+       // Okänd art visas som svart katt tills asset_key i species rättats
+       base: pick(CAT_ASSETS, animal.species?.asset_key) ?? 'cat_black',
+       hat: pick(HAT_ASSETS, wornBySlot.hat?.assetKey),
+       acc: pick(ACC_ASSETS, wornBySlot.neck?.assetKey),
+       body: pick(BODY_ASSETS, wornBySlot.body?.assetKey),
+     }
+   : null;
+
+
  if (loading) {
    return (
      <View style={[styles.center, { backgroundColor: COLORS.background }]}>
@@ -289,7 +379,8 @@ export default function WardrobeScreen() {
 
 
      <ScrollView
-       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+       style={styles.scroll}
+       contentContainerStyle={styles.content}
        refreshControl={
          <RefreshControl
            refreshing={refreshing}
@@ -303,7 +394,7 @@ export default function WardrobeScreen() {
        {error && <Text style={styles.error}>{error}</Text>}
 
 
-       {!animal ? (
+       {!animal || !catAppearance ? (
          // Inget aktivt djur: det går inte att klä på något
          <View style={styles.noAnimal}>
            <Text style={styles.noAnimalText}>
@@ -312,27 +403,32 @@ export default function WardrobeScreen() {
          </View>
        ) : (
          <>
-           {/* ---------- DJURET MED KLÄDER ---------- */}
-           <View style={styles.preview}>
-             <CatAvatar
-               appearance={{
-                 // Okänd art visas som svart katt tills asset_key i species rättats
-                 base: pick(CAT_ASSETS, animal.species?.asset_key) ?? 'cat_black',
-                 hat: pick(HAT_ASSETS, wornBySlot.hat?.assetKey),
-                 acc: pick(ACC_ASSETS, wornBySlot.neck?.assetKey),
-                 body: pick(BODY_ASSETS, wornBySlot.body?.assetKey),
-               }}
-               width={avatarSize}
-               accessibilityLabel={animal.name}
-             />
-             <View style={[styles.shadow, { width: avatarSize * 0.55 }]} />
-             <Text style={styles.animalName}>{animal.name}</Text>
-           </View>
+           {mode === 'clothing' ? (
+             // ---------- DJURET MED KLÄDER ----------
+             <View style={styles.preview}>
+               <CatAvatar
+                 appearance={catAppearance}
+                 width={avatarSize}
+                 accessibilityLabel={animal.name}
+               />
+               <View style={[styles.shadow, { width: avatarSize * 0.55 }]} />
+               <Text style={styles.animalName}>{animal.name}</Text>
+             </View>
+           ) : (
+             // ---------- RUMMET, som på hemskärmen ----------
+             <View style={styles.preview}>
+               <HomeScene
+                 home={home}
+                 cat={{ appearance: catAppearance, accessibilityLabel: animal.name }}
+                 style={[styles.roomPreview, { width: roomSize }]}
+               />
+             </View>
+           )}
 
 
-           {/* ---------- FLIKAR: All + en per typ ---------- */}
+           {/* ---------- FLIKAR: All + en per kategori ---------- */}
            <View style={styles.tabRow}>
-             {TABS.map((t) => {
+             {tabs.map((t) => {
                const selected = tab === t.key;
                return (
                  <Pressable
@@ -353,7 +449,11 @@ export default function WardrobeScreen() {
                );
              })}
            </View>
-           <Text style={styles.hint}>Tap an item to wear it. Tap it again to take it off.</Text>
+           <Text style={styles.hint}>
+             {mode === 'clothing'
+               ? 'Tap an item to wear it. Tap it again to take it off.'
+               : 'Tap an item to place it in the room. Tap it again to remove it.'}
+           </Text>
          </>
        )}
 
@@ -374,7 +474,15 @@ export default function WardrobeScreen() {
                  { width: cellSize, height: cellSize },
                ]}
                accessibilityRole="button"
-               accessibilityLabel={wearing ? `Take off ${item.name}` : `Wear ${item.name}`}
+               accessibilityLabel={
+                 mode === 'clothing'
+                   ? wearing
+                     ? `Take off ${item.name}`
+                     : `Wear ${item.name}`
+                   : wearing
+                     ? `Remove ${item.name} from the room`
+                     : `Place ${item.name} in the room`
+               }
              >
                <ItemSprite assetKey={item.assetKey} size={cellSize * 0.5} />
                <Text style={styles.cellName} numberOfLines={1}>
@@ -389,9 +497,11 @@ export default function WardrobeScreen() {
        {visibleItems.length === 0 && (
          <View style={styles.noItems}>
            <Text style={styles.noAnimalText}>
-             {items.length === 0
-               ? "You haven't bought any clothes yet."
-               : "You don't own anything in this category yet."}
+             {modeItems.length > 0
+               ? "You don't own anything in this category yet."
+               : mode === 'clothing'
+                 ? "You haven't bought any clothes yet."
+                 : "You haven't bought anything for your room yet."}
            </Text>
            <Pressable style={styles.shopButton} onPress={() => router.push('/shopScreen')}>
              <Text style={styles.shopButtonText}>Go to the shop</Text>
@@ -399,6 +509,39 @@ export default function WardrobeScreen() {
          </View>
        )}
      </ScrollView>
+
+
+     {/* ---------- FLIKAR: Clothing / Interior (som i shoppen) ---------- */}
+     <View style={[styles.modeBar, { paddingBottom: insets.bottom + 12 }]}>
+       <Pressable
+         style={[styles.modeButton, mode === 'clothing' && styles.modeButtonActive]}
+         onPress={() => switchMode('clothing')}
+         accessibilityRole="tab"
+         accessibilityState={{ selected: mode === 'clothing' }}
+       >
+         <MaterialCommunityIcons
+           name="tshirt-crew"
+           size={24}
+           color={mode === 'clothing' ? '#FFFFFF' : COLORS.text}
+         />
+         <Text style={[styles.modeText, mode === 'clothing' && styles.modeTextActive]}>Clothing</Text>
+       </Pressable>
+
+
+       <Pressable
+         style={[styles.modeButton, mode === 'interior' && styles.modeButtonActive]}
+         onPress={() => switchMode('interior')}
+         accessibilityRole="tab"
+         accessibilityState={{ selected: mode === 'interior' }}
+       >
+         <MaterialCommunityIcons
+           name="sofa"
+           size={24}
+           color={mode === 'interior' ? '#FFFFFF' : COLORS.text}
+         />
+         <Text style={[styles.modeText, mode === 'interior' && styles.modeTextActive]}>Interior</Text>
+       </Pressable>
+     </View>
    </View>
  );
 }
@@ -423,11 +566,12 @@ const styles = StyleSheet.create({
    paddingHorizontal: SCREEN_PADDING,
    paddingBottom: 12, // paddingTop läggs till i koden (statusfältet)
  },
- title: { fontSize: 26, fontWeight: '700', color: COLORS.text },
+ title: { fontFamily: Fonts.regular, fontSize: 26, fontWeight: '700', color: COLORS.text },
 
 
+ scroll: { flex: 1 },
  content: { padding: SCREEN_PADDING, gap: 16, paddingBottom: 40 },
- error: { fontSize: 14, color: COLORS.error },
+ error: { fontFamily: Fonts.regular, fontSize: 14, color: COLORS.error },
 
 
  // Djuret
@@ -438,7 +582,8 @@ const styles = StyleSheet.create({
    backgroundColor: 'rgba(0,0,0,0.12)',
    marginTop: -18,
  },
- animalName: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginTop: 12 },
+ animalName: { fontFamily: Fonts.regular, fontSize: 20, fontWeight: '700', color: COLORS.text, marginTop: 12 },
+ roomPreview: { top: 0, borderRadius: 18 },
 
 
  // Flikar
@@ -455,9 +600,9 @@ const styles = StyleSheet.create({
    justifyContent: 'center',
  },
  tabButtonSelected: { backgroundColor: COLORS.card, borderColor: COLORS.selected },
- tabText: { fontSize: 15, fontWeight: '600', color: COLORS.muted },
+ tabText: { fontFamily: Fonts.regular, fontSize: 15, fontWeight: '600', color: COLORS.muted },
  tabTextSelected: { color: COLORS.text },
- hint: { fontSize: 12, color: COLORS.muted, textAlign: 'center', marginTop: -6 },
+ hint: { fontFamily: Fonts.regular, fontSize: 12, color: COLORS.muted, textAlign: 'center', marginTop: -6 },
 
 
  // Rutnät
@@ -473,7 +618,7 @@ const styles = StyleSheet.create({
    paddingHorizontal: 4,
  },
  cellWearing: { borderColor: COLORS.selected, borderWidth: 3 },
- cellName: { fontSize: 12, color: COLORS.muted, textAlign: 'center' },
+ cellName: { fontFamily: Fonts.regular, fontSize: 12, color: COLORS.muted, textAlign: 'center' },
  spritePlaceholder: {
    backgroundColor: '#F0F0F0',
    borderRadius: 10,
@@ -484,7 +629,7 @@ const styles = StyleSheet.create({
 
  // Tomma lägen
  noAnimal: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
- noAnimalText: { fontSize: 16, color: COLORS.muted, textAlign: 'center' },
+ noAnimalText: { fontFamily: Fonts.regular, fontSize: 16, color: COLORS.muted, textAlign: 'center' },
  noItems: { alignItems: 'center', gap: 12, paddingTop: 8 },
  shopButton: {
    backgroundColor: COLORS.accent,
@@ -492,5 +637,30 @@ const styles = StyleSheet.create({
    paddingHorizontal: 18,
    paddingVertical: 10,
  },
- shopButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+ shopButtonText: { fontFamily: Fonts.regular, color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+
+
+ // Flikar längst ner (samma som i shoppen)
+ modeBar: {
+   flexDirection: 'row',
+   gap: 12,
+   backgroundColor: COLORS.header,
+   paddingHorizontal: SCREEN_PADDING,
+   paddingTop: 12, // paddingBottom läggs till i koden (hemindikatorn)
+ },
+ modeButton: {
+   flex: 1,
+   flexDirection: 'row',
+   alignItems: 'center',
+   justifyContent: 'center',
+   gap: 8,
+   borderWidth: 2,
+   borderColor: COLORS.border,
+   borderRadius: 30,
+   paddingVertical: 12,
+   backgroundColor: '#FFFFFF',
+ },
+ modeButtonActive: { backgroundColor: COLORS.orange, borderColor: COLORS.orangeBorder },
+ modeText: { fontFamily: Fonts.regular, fontSize: 20, color: COLORS.text },
+ modeTextActive: { color: '#FFFFFF', fontWeight: '600' },
 });

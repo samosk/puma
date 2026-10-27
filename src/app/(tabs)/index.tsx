@@ -2,7 +2,7 @@ import { HomeFloatingActions } from "@/components/home/HomeFloatingActions";
 import { HomeAnimalStatus } from "@/components/home/HomeAnimalStatus";
 import { HomeScene } from "@/components/home/HomeScene";
 import { HomeTopBar } from "@/components/home/HomeTopBar";
-import type { HomeAppearance } from "@/components/home/home-assets";
+import { buildHomeAppearance } from "@/components/home/home-assets";
 import { useActiveCat } from "@/hooks/use-active-cat";
 import { useAnimalMood } from "@/hooks/use-animal-mood";
 import { useProfileBalances } from "@/hooks/use-profile-balances";
@@ -19,16 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const HOME_SCENE_SCALE = 1.85;
 
-const PREVIEW_HOME: HomeAppearance = {
-  wall: "wall_beige",
-  floor: "floor_oak",
-  ornament_1: "ornament_1_curtains",
-  ornament_2: "ornament_2_painting",
-  home_1: "home_1_leather_sofa",
-  home_2: "home_2_cardboard_box",
-  home_3: "home_3_floor_plant",
-  home_4: "home_4_rug",
-};
+// Shown before the cat has loaded (or without a cat): default wall and floor only
+const EMPTY_HOME = buildHomeAppearance({});
 
 export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
@@ -86,7 +78,7 @@ export default function HomeScreen() {
                   }
                 : null
             }
-            home={PREVIEW_HOME}
+            home={activeCat?.home ?? EMPTY_HOME}
             style={{ width: sceneWidth }}
           />
         </ScrollView>
